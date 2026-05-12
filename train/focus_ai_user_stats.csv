@@ -1,0 +1,23 @@
+,productivity_score,productivity_score,productivity_score,productivity_score,productivity_score,actual_duration,post_focus,pre_motivation
+,mean,std,min,max,count,mean,mean,mean
+user_name,,,,,,,,
+Disciplined 1,76.94,9.03,56.61,99.83,82,54.89,3.99,4.27
+Disciplined 2,75.68,10.51,48.06,98.67,76,65.21,3.82,4.12
+Disciplined 3,81.69,8.54,57.33,98.17,77,61.14,4.74,4.56
+Early Bird 1,76.53,8.21,61.1,97.72,73,61.25,4.07,4.07
+Early Bird 2,66.43,10.2,37.61,85.83,78,59.65,3.76,3.18
+Early Bird 3,70.85,10.56,42.33,92.0,80,55.36,3.94,3.61
+Easily Distracted 1,25.06,10.45,7.67,58.17,60,56.93,2.1,2.53
+Easily Distracted 2,24.54,12.01,1.83,49.17,59,59.08,1.41,2.69
+Easily Distracted 3,24.25,11.11,0.0,52.11,55,59.49,1.22,3.04
+Highly Motivated 1,79.02,9.27,56.44,99.17,76,62.54,4.63,4.37
+Highly Motivated 2,74.49,11.01,51.33,92.83,75,63.31,4.32,3.88
+Highly Motivated 3,76.69,8.38,40.78,94.89,82,56.3,3.99,4.46
+Inconsistent 1,49.64,13.25,27.56,79.06,57,53.44,2.46,2.37
+Inconsistent 2,55.5,14.23,27.33,80.63,58,57.86,2.5,3.22
+Inconsistent 3,47.2,9.25,29.43,75.67,61,65.07,1.98,2.56
+Night Owl 1,67.77,9.34,45.39,85.56,76,60.17,3.63,3.72
+Night Owl 2,68.76,8.56,50.33,86.33,70,55.27,3.94,3.83
+Night Owl 3,63.17,9.55,38.17,81.39,71,56.34,3.41,3.13
+Social Butterfly 1,20.91,10.31,1.33,47.78,59,65.44,1.61,2.17
+Social Butterfly 2,26.46,13.52,2.0,56.44,69,60.45,1.64,3.17
