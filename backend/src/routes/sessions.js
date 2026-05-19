@@ -143,4 +143,37 @@ export async function sessionRoutes(fastify) {
 
     return reply.send({ session })
   })
+
+  // Update session type
+  fastify.patch('/sessions/:id/type', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = request.user.sub;
+    const { id } = request.params;
+    const { session_type } = request.body;
+
+    const session = await prisma.session.findFirst({ where: { id, user_id: userId } });
+    if (!session) return reply.code(404).send({ error: 'Session not found' });
+
+    const updated = await prisma.session.update({
+      where: { id },
+      data: { session_type },
+    });
+
+    return reply.send({ session: updated });
+  })
+
+  // Delete a session
+  fastify.delete('/sessions/:id', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = request.user.sub
+    const { id } = request.params
+
+    const session = await prisma.session.findFirst({ where: { id, user_id: userId } })
+    if (!session) return reply.code(404).send({ error: 'Session not found' })
+
+    await prisma.session.delete({ where: { id } })
+    return reply.code(204).send()
+  })
 }
