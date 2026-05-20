@@ -1,0 +1,15 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="200" fill="#2c694e"/>
+
+  <!-- Outer ring -->
+  <circle cx="512" cy="512" r="370" fill="none" stroke="#b1f0ce" stroke-width="38" opacity="0.4"/>
+  <!-- Mid ring -->
+  <circle cx="512" cy="512" r="272" fill="none" stroke="#a3e2c0" stroke-width="54" opacity="0.65"/>
+  <!-- Inner ring -->
+  <circle cx="512" cy="512" r="175" fill="none" stroke="#a3e2c0" stroke-width="63"/>
+  <!-- Center fill -->
+  <circle cx="512" cy="512" r="68" fill="#b1f0ce"/>
+  <!-- Center dot -->
+  <circle cx="512" cy="512" r="27" fill="#2c694e"/>
+</svg>
