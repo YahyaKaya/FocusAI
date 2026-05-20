@@ -88,14 +88,42 @@ export async function surveyRoutes(fastify) {
       }),
     ])
 
-    // Fire recommendation request to ML service in background — fails silently
+    // Call ML service and save recommendation to DB
     const mlUrl = process.env.ML_SERVICE_URL
     if (mlUrl) {
-      fetch(`${mlUrl}/recommend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, session_id: id }),
-      }).catch(() => {})
+      ;(async () => {
+        try {
+          const mlRes = await fetch(`${mlUrl}/generate-recommendation`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId }),
+          })
+
+          if (!mlRes.ok) return
+
+          const mlData = await mlRes.json()
+
+          if (mlData.status === 'not_enough_data') return
+
+          await prisma.recommendation.create({
+            data: {
+              user_id: userId,
+              session_id: id,
+              type: 'TIME_OF_DAY',
+              content: mlData.description,
+              reasoning: JSON.stringify({
+                title: mlData.title,
+                method: mlData.method,
+                sessions_analyzed: mlData.sessions_analyzed,
+                suggested_settings: mlData.suggested_settings,
+                insight: mlData.insight,
+              }),
+            },
+          })
+        } catch (err) {
+          fastify.log.warn('ML service call failed: ' + err.message)
+        }
+      })()
     }
 
     return reply.code(201).send({ survey, productivity_score: score })
