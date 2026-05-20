@@ -86,12 +86,17 @@ export async function sessionRoutes(fastify) {
     })
 
     if (!session) return reply.code(404).send({ error: 'Session not found' })
-    if (session.status === 'COMPLETED') return reply.code(400).send({ error: 'Session already completed' })
+    if (session.status === 'COMPLETED') {
+      // Already completed — return it as-is so mobile can proceed to post-survey
+      return reply.send({ session })
+    }
 
     const endTime = new Date()
-    const actualDuration = Math.round(
+    // actual_duration = wall clock minus total break time already accumulated
+    const wallClockMins = Math.round(
       (endTime.getTime() - session.start_time.getTime()) / 60000
     )
+    const actualDuration = Math.max(1, wallClockMins - (session.total_break_mins ?? 0))
 
     const updated = await prisma.session.update({
       where: { id },

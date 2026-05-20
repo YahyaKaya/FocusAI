@@ -1,16 +1,23 @@
 import { prisma } from '../lib/prisma.js'
 
-function calculateProductivityScore({ productivity, focus, satisfaction, distraction }) {
+function calculateProductivityScore({ productivity, focus, satisfaction, distraction, actual_duration, planned_duration }) {
   const distractionMap = { NONE: 0.0, FEW: 0.5, MANY: 1.0 }
   const D = distractionMap[distraction] ?? 0.0
-
   const P = (productivity - 1) / 4
   const F = (focus - 1) / 4
   const S = (satisfaction - 1) / 4
+  const baseScore = 100 * (0.4 * P + 0.3 * F + 0.2 * S + 0.1 * (1 - D))
 
-  const score = 100 * (0.4 * P + 0.3 * F + 0.2 * S + 0.1 * (1 - D))
+  // Small penalty only if user completed less than 50% of planned duration
+  let durationFactor = 1.0
+  if (planned_duration && actual_duration && planned_duration > 0) {
+    const threshold = planned_duration * 0.5
+    if (actual_duration < threshold) {
+      durationFactor = actual_duration / threshold
+    }
+  }
 
-  return Math.round(score * 10) / 10
+  return Math.round(baseScore * durationFactor * 10) / 10
 }
 
 export async function surveyRoutes(fastify) {
@@ -69,7 +76,14 @@ export async function surveyRoutes(fastify) {
     })
     if (existing) return reply.code(400).send({ error: 'Post-survey already submitted' })
 
-    const score = calculateProductivityScore({ productivity, focus, satisfaction, distraction })
+    const score = calculateProductivityScore({
+      productivity,
+      focus,
+      satisfaction,
+      distraction,
+      actual_duration: session.actual_duration,
+      planned_duration: session.planned_duration,
+    })
 
     const [survey] = await prisma.$transaction([
       prisma.postSurvey.create({
