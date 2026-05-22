@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { api } from "../../lib/api";
 import { supabase } from "../../lib/supabase";
 import { useTheme } from "../../lib/ThemeContext";
+import { useSessionContext } from '../../lib/SessionContext';
 import type { AppColors } from "../../lib/theme";
 
 type Session = {
@@ -124,11 +125,10 @@ export default function HomeScreen() {
   const colors = useTheme();
   const router = useRouter();
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [recommendation, setRecommendation] = useState<Recommendation | null>(
-    null,
-  );
+  const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
   const [loading, setLoading] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
+  const { activeSessionId, activeSessionType, pendingPostSurveyId } = useSessionContext();
 
   useFocusEffect(
     useCallback(() => {
@@ -136,22 +136,17 @@ export default function HomeScreen() {
         setLoading(true);
         try {
           const [sessionsData, recData] = await Promise.all([
-            api.get<{ sessions: Session[] }>("/sessions"),
-            api
-              .get<{ recommendation: Recommendation | null }>(
-                "/recommendations/latest",
-              )
+            api.get<{ sessions: Session[] }>('/sessions'),
+            api.get<{ recommendation: Recommendation | null }>('/recommendations/latest')
               .catch(() => ({ recommendation: null })),
           ]);
           setSessions(sessionsData.sessions);
           setRecommendation(recData.recommendation);
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
+          const { data: { user } } = await supabase.auth.getUser();
           const name =
-            user?.user_metadata?.full_name?.split(" ")[0] ??
-            user?.user_metadata?.name?.split(" ")[0] ??
-            user?.email?.split("@")[0] ??
+            user?.user_metadata?.full_name?.split(' ')[0] ??
+            user?.user_metadata?.name?.split(' ')[0] ??
+            user?.email?.split('@')[0] ??
             null;
           setUserName(name);
         } catch (e) {
@@ -206,14 +201,35 @@ export default function HomeScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* Top Bar */}
-      <View className="px-6 pt-12 flex-row items-center justify-center mb-6">
-        <Text className="text-base font-bold text-on-surface dark:text-[#e8f0eb]">{t("common.app_name")}</Text>
+      <View className="px-6 pt-10 flex-row items-center mb-6">
+        <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: '#2c694e', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+          <View style={{ width: 26, height: 26, borderRadius: 13, borderWidth: 2.5, borderColor: '#b1f0ce', alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 14, height: 14, borderRadius: 7, borderWidth: 2, borderColor: '#b1f0ce', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: '#b1f0ce' }} />
+            </View>
+          </View>
+        </View>
+        <View style={{ flexDirection: 'column' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+            <Text style={{ fontSize: 22, fontWeight: '800', letterSpacing: -0.5, color: '#2b3437' }}
+              className="dark:text-[#e8f0eb]">
+              Focus
+            </Text>
+            <Text style={{ fontSize: 22, fontWeight: '800', letterSpacing: -0.5, color: '#2c694e' }}>
+              {' '}AI
+            </Text>
+          </View>
+          <Text style={{ fontSize: 11, color: '#586064', fontWeight: '400', letterSpacing: 0.3, marginTop: -2 }}
+            className="dark:text-[#9ab0a0]">
+            {t('common.intelligent_focus')}
+          </Text>
+        </View>
       </View>
 
       {/* Greeting */}
       <View className="px-6 mb-10">
         <Text className="text-4xl font-extrabold text-on-surface dark:text-[#e8f0eb] tracking-tight leading-tight">
-          {`${getGreeting(t)}${userName ? `, ${userName}` : ''}.`}
+          {`${getGreeting(t)}${userName ? `, ${userName.charAt(0).toUpperCase() + userName.slice(1)}` : ''}.`}
         </Text>
       </View>
 
@@ -238,12 +254,24 @@ export default function HomeScreen() {
         {/* Primary CTA */}
         <TouchableOpacity
           className="bg-primary dark:bg-[#4ade80] h-14 rounded-xl items-center justify-center flex-row gap-2 mb-3"
-          onPress={() => router.push("/(app)/quick-start")}
+          onPress={() => {
+            if (activeSessionId) {
+              router.push(`/(app)/session?id=${activeSessionId}&sessionType=${activeSessionType}`);
+            } else if (pendingPostSurveyId) {
+              router.push(`/(app)/post-survey?id=${pendingPostSurveyId}&sessionType=OTHER`);
+            } else {
+              router.push('/(app)/quick-start');
+            }
+          }}
           disabled={loading}
           activeOpacity={0.85}
         >
           <Text className="text-on-primary dark:text-[#0a1f12] font-bold text-lg">
-            {t("home.start_session")}
+            {activeSessionId
+              ? t('session.return_to_session')
+              : pendingPostSurveyId
+              ? t('session.complete_survey')
+              : t('home.quick_session')}
           </Text>
           <MaterialCommunityIcons name="arrow-right" size={20} color={colors.onPrimary} />
         </TouchableOpacity>

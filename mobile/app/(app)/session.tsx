@@ -13,6 +13,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../../lib/ThemeContext";
 import { api } from "../../lib/api";
+import { useSessionContext } from '../../lib/SessionContext';
 import { useSessionNotification } from "../../lib/useSessionNotification";
 
 export default function SessionScreen() {
@@ -25,22 +26,47 @@ export default function SessionScreen() {
   }>();
   const router = useRouter();
 
+  const { endSession, activeSessionStart } = useSessionContext();
   const [status, setStatus] = useState<"ACTIVE" | "PAUSED">("ACTIVE");
-  const [elapsed, setElapsed] = useState(0);
+  const sessionStart = activeSessionStart ?? Date.now();
+  const startTimestampRef = useRef<number>(sessionStart);
+  const pausedElapsedRef = useRef<number>(0);
+  const [elapsed, setElapsed] = useState(() =>
+    activeSessionStart ? Math.floor((Date.now() - activeSessionStart) / 1000) : 0
+  );
   const [pauseCount, setPauseCount] = useState(0);
   const [sessionType, setSessionType] = useState<string>(initialType ?? "OTHER");
   const [showTypePicker, setShowTypePicker] = useState(false);
   const plannedDuration = parseInt(plannedDurationParam ?? "0") || 0;
 
-  useSessionNotification(sessionType, plannedDuration, elapsed, status === 'ACTIVE');
+  useSessionNotification(sessionType, plannedDuration, elapsed, status === 'ACTIVE', activeSessionStart ?? undefined);
 
-  // Use a start timestamp approach so background doesn't break the timer
-  const startTimestampRef = useRef<number>(Date.now());
-  const pausedElapsedRef = useRef<number>(0);
   const breakStartRef = useRef<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const appStateRef = useRef(AppState.currentState);
   const isEndingRef = useRef(false);
+
+  useEffect(() => {
+    if (activeSessionStart) {
+      startTimestampRef.current = activeSessionStart;
+      pausedElapsedRef.current = 0;
+      const initialElapsed = Math.floor((Date.now() - activeSessionStart) / 1000);
+      setElapsed(initialElapsed);
+      isEndingRef.current = false;
+
+      // Restart the interval with the correct start time
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(() => {
+        const now = Date.now();
+        const totalElapsed = Math.floor((now - activeSessionStart) / 1000);
+        setElapsed(totalElapsed);
+      }, 1000);
+    }
+
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [activeSessionStart]);
 
   useEffect(() => {
     // Recalculate elapsed when app comes back to foreground
@@ -294,10 +320,11 @@ export default function SessionScreen() {
     try {
       await api.patch(`/sessions/${id}/end`, {});
     } catch (e) {
-      // Session may already be ended — continue to post-survey anyway
       console.warn('End session error (continuing):', e);
     }
+    endSession(id);
     router.push(`/(app)/post-survey?id=${id}&sessionType=${sessionType}&elapsed=${elapsed}`);
+    setTimeout(() => { isEndingRef.current = false; }, 1000);
   }
 
   return (

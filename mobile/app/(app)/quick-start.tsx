@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import Slider from '@react-native-community/slider';
 import { api } from "../../lib/api";
 import { useTheme } from "../../lib/ThemeContext";
+import { useSessionContext } from '../../lib/SessionContext';
 
 function EmojiSliderRow({ label, value, onChange, emojis, colors }: {
   label: string; value: number; onChange: (v: number) => void; emojis: string[]; colors: any;
@@ -47,8 +48,11 @@ export default function QuickStartScreen() {
   const [environment, setEnvironment] = useState<string>('QUIET');
   const [musicType, setMusicType] = useState<string | null>(null);
   const [recId, setRecId] = useState<string | null>(null);
+  const [recLoading, setRecLoading] = useState(true);
+  const { startSession } = useSessionContext();
 
   useEffect(() => {
+    setRecLoading(true);
     api.get<{ recommendation: any }>('/recommendations/latest')
       .then(({ recommendation }) => {
         if (!recommendation?.reasoning) return;
@@ -61,7 +65,8 @@ export default function QuickStartScreen() {
         if (s.music_type) setMusicType(s.music_type);
         setRecId(recommendation.id);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setRecLoading(false));
   }, []);
 
   async function handleStart() {
@@ -82,6 +87,7 @@ export default function QuickStartScreen() {
       if (recId) {
         api.patch(`/recommendations/${recId}`, { interaction: 'APPLIED' }).catch(() => {});
       }
+      startSession(session.id, sessionType);
       router.push(`/(app)/session?id=${session.id}&sessionType=${sessionType}&plannedDuration=${plannedDuration}`);
     } catch {
       Alert.alert(t('common.error'), t('common.error_retry'));
@@ -133,7 +139,7 @@ export default function QuickStartScreen() {
           {t('quick_start.ai_note')}
         </Text>
 
-        {(sessionType !== 'OTHER' || plannedDuration !== 45) && (
+        {!recLoading && (sessionType !== 'OTHER' || plannedDuration !== 45) && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
             <View style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: colors.tertiaryContainer }}>
               <Text style={{ fontSize: 12, fontWeight: '600', color: colors.onTertiaryContainer }}>⏱ {plannedDuration} min</Text>

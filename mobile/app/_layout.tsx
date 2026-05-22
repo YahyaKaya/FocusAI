@@ -9,6 +9,7 @@ import { View, Text, ActivityIndicator } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { initI18n } from "../lib/i18n";
 import { ThemeProvider, useThemeContext } from "../lib/ThemeContext";
+import { SessionProvider } from '../lib/SessionContext';
 
 // Import supabase and api AFTER polyfill to ensure they have proper fetch
 let supabase: any;
@@ -180,7 +181,9 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <RootLayoutNav session={session} />
+      <SessionProvider>
+        <RootLayoutNav session={session} />
+      </SessionProvider>
     </ThemeProvider>
   );
 }

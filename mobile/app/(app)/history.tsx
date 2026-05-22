@@ -213,7 +213,7 @@ export default function HistoryScreen() {
   const colors = useTheme();
   const router = useRouter();
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const ss = useMemo(() => makeStyles(colors), [colors]);
 
   useFocusEffect(
@@ -221,7 +221,7 @@ export default function HistoryScreen() {
       async function fetchSessions() {
         setLoading(true);
         try {
-          const data = await api.get<{ sessions: Session[] }>("/sessions");
+          const data = await api.get<{ sessions: Session[] }>('/sessions');
           setSessions(data.sessions);
         } catch (e) {
           console.error(e);

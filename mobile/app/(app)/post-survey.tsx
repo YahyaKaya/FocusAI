@@ -7,11 +7,13 @@ import {
   Modal,
 } from "react-native";
 import Slider from '@react-native-community/slider';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useTheme } from "../../lib/ThemeContext";
+import { useSessionContext } from '../../lib/SessionContext';
+import { cancelSessionNotification } from '../../lib/useSessionNotification';
 
 async function waitForScore(sessionId: string, maxAttempts = 10): Promise<void> {
   for (let i = 0; i < maxAttempts; i++) {
@@ -73,7 +75,12 @@ export default function PostSurveyScreen() {
   const [notes, setNotes] = useState("");
   const [sessionType, setSessionType] = useState<string>(initialType ?? 'OTHER');
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const { clearPendingPostSurvey } = useSessionContext();
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    cancelSessionNotification();
+  }, []);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const SESSION_TYPES = [
@@ -100,6 +107,7 @@ export default function PostSurveyScreen() {
         },
       );
       await waitForScore(id);
+      clearPendingPostSurvey();
       router.push(`/(app)/insights?id=${id}`);
     } catch (e) {
       console.error(e);

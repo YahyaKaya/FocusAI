@@ -12,6 +12,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { api } from "../../lib/api";
 import { useTheme } from "../../lib/ThemeContext";
+import { useSessionContext } from '../../lib/SessionContext';
 
 function EmojiSliderRow({
   label,
@@ -55,21 +56,29 @@ export default function PreSurveyScreen() {
   const { t } = useTranslation();
   const colors = useTheme();
   const router = useRouter();
-  const { custom } = useLocalSearchParams<{ custom?: string }>();
+  const { custom, session_type, planned_duration, environment: envParam, music_type, rec_id } = useLocalSearchParams<{
+    custom?: string;
+    session_type?: string;
+    planned_duration?: string;
+    environment?: string;
+    music_type?: string;
+    rec_id?: string;
+  }>();
   const isCustom = custom === "true";
   const [mood, setMood] = useState(3);
   const [energy, setEnergy] = useState(3);
   const [motivation, setMotivation] = useState(3);
   const [goalDifficulty, setGoalDifficulty] = useState(3);
   const [environment, setEnvironment] = useState<"QUIET" | "NOISY" | "MUSIC">(
-    "QUIET",
+    (envParam as any) ?? "QUIET"
   );
-  const [sessionType, setSessionType] = useState<
-    "READING" | "WRITING" | "CODING" | "TEST" | "OTHER"
-  >("OTHER");
-  const [plannedDuration, setPlannedDuration] = useState("45");
+  const [sessionType, setSessionType] = useState<"READING" | "WRITING" | "CODING" | "TEST" | "OTHER">(
+    (session_type as any) ?? "OTHER"
+  );
+  const [plannedDuration, setPlannedDuration] = useState(planned_duration ?? "45");
   const [loading, setLoading] = useState(false);
-  const [musicType, setMusicType] = useState<string | null>(null);
+  const { startSession } = useSessionContext();
+  const [musicType, setMusicType] = useState<string | null>(music_type ?? null);
   const [showTypePicker, setShowTypePicker] = useState(false);
 
   const SESSION_TYPES = [
@@ -98,7 +107,11 @@ export default function PreSurveyScreen() {
         environment,
         music_type: environment === 'MUSIC' ? musicType : null,
       });
+      startSession(session.id, sessionType);
       router.push(`/(app)/session?id=${session.id}&sessionType=${sessionType}&plannedDuration=${parseInt(plannedDuration) || 45}`);
+      if (rec_id) {
+        api.patch(`/recommendations/${rec_id}`, { interaction: 'APPLIED' }).catch(() => {});
+      }
     } catch (e) {
       console.error(e);
     }

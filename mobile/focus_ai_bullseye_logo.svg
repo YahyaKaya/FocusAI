@@ -1,0 +1,25 @@
+<svg width="100%" viewBox="0 0 680 260" role="img" xmlns="http://www.w3.org/2000/svg" style="">
+  <title style="fill:rgb(0, 0, 0);stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Focus AI Bullseye Logo</title>
+  <desc style="fill:rgb(0, 0, 0);stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">Focus AI logo with bullseye icon — dark green background, mint rings</desc>
+
+  
+
+  <!-- Icon: dark green rounded square -->
+  <rect x="40" y="40" width="180" height="180" rx="40" fill="#2c694e" style="fill:rgb(44, 105, 78);stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Bullseye rings — mint on dark green, thick strokes -->
+  <!-- Outer ring -->
+  <circle cx="130" cy="130" r="68" fill="none" stroke="#b1f0ce" stroke-width="7" opacity="0.4" style="fill:none;stroke:rgb(177, 240, 206);color:rgb(251, 251, 254);stroke-width:7px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.4;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Mid ring -->
+  <circle cx="130" cy="130" r="50" fill="none" stroke="#a3e2c0" stroke-width="9" opacity="0.65" style="fill:none;stroke:rgb(163, 226, 192);color:rgb(251, 251, 254);stroke-width:9px;stroke-linecap:butt;stroke-linejoin:miter;opacity:0.65;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Inner ring -->
+  <circle cx="130" cy="130" r="32" fill="none" stroke="#a3e2c0" stroke-width="11" style="fill:none;stroke:rgb(163, 226, 192);color:rgb(251, 251, 254);stroke-width:11px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <!-- Bull center -->
+  <circle cx="130" cy="130" r="13" fill="#b1f0ce" style="fill:rgb(177, 240, 206);stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <circle cx="130" cy="130" r="5" fill="#2c694e" style="fill:rgb(44, 105, 78);stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+
+  <!-- Wordmark -->
+  <text x="248" y="122" style="fill:rgb(44, 105, 78);stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Manrope&quot;, sans-serif;font-size:36px;font-weight:800;text-anchor:start;dominant-baseline:auto">Focus<tspan style="fill:rgb(163, 226, 192);stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Manrope&quot;, sans-serif;font-size:36px;font-weight:800;text-anchor:start;dominant-baseline:auto"> AI</tspan></text>
+  <text x="250" y="152" style="fill:rgb(115, 124, 127);stroke:none;color:rgb(251, 251, 254);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Inter&quot;, sans-serif;font-size:11px;font-weight:500;text-anchor:start;dominant-baseline:auto">INTELLIGENT FOCUS SESSIONS</text>
+
+</svg>

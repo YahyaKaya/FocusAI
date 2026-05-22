@@ -1,6 +1,7 @@
 {
   "common": {
     "app_name": "Focus AI",
+    "intelligent_focus": "intelligent focus sessions",
     "today": "Today",
     "yesterday": "Yesterday",
     "loading": "Loading…",
@@ -41,6 +42,7 @@
     "scientific_note": "Scientific Note",
     "start_session": "Start Session",
     "apply_recommendation": "Apply Recommendation",
+    "quick_session": "Quick Session",
     "rec_description_lift": "You score {{lift}}% higher during {{daypart}} sessions. Try a {{duration}}-min {{type}} session in a {{environment}}.",
     "rec_description_basic": "Try a {{duration}}-min {{type}} session in a {{environment}} for your best focus.",
     "mins": "min",
@@ -68,7 +70,13 @@
     "tip_text": "Regular short breaks improve long-term retention.",
     "breaks_taken": "breaks taken",
     "session_type": "Session Type",
-    "change_type": "Change Session Type"
+    "change_type": "Change Session Type",
+    "active_banner_title": "Session in progress",
+    "pending_survey_title": "Complete your session",
+    "tap_to_return": "Tap to return",
+    "tap_to_complete": "Finish your post-session survey",
+    "return_to_session": "Return to Session",
+    "complete_survey": "Complete Survey"
   },
   "pre_survey": {
     "title": "Pre-Session Survey",
@@ -173,6 +181,7 @@
     "no_sessions": "No completed sessions yet.",
     "complete_more": "Complete more sessions to unlock personalized recommendations.",
     "ai_recommendation": "AI Recommendation",
+    "go_to_insights": "View My Insights",
     "session_complete": "SESSION COMPLETE",
     "your_results": "Your Results",
     "productivity_score": "PRODUCTIVITY SCORE",

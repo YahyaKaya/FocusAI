@@ -1,6 +1,7 @@
 {
   "common": {
     "app_name": "Focus AI",
+    "intelligent_focus": "akıllı odak oturumları",
     "today": "Bugün",
     "yesterday": "Dün",
     "loading": "Yükleniyor…",
@@ -41,6 +42,7 @@
     "scientific_note": "Bilimsel Not",
     "start_session": "Oturum Başlat",
     "apply_recommendation": "Öneriyi Uygula",
+    "quick_session": "Hızlı Oturum",
     "rec_description_lift": "{{daypart}} oturumlarında {{lift}}% daha yüksek puan alıyorsun. {{environment}} ortamında {{duration}} dakikalık bir {{type}} oturumu dene.",
     "rec_description_basic": "En iyi odaklanman için {{environment}} ortamında {{duration}} dakikalık bir {{type}} oturumu dene.",
     "mins": "dk",
@@ -68,7 +70,13 @@
     "tip_text": "Düzenli kısa molalar uzun vadeli öğrenmeyi artırır.",
     "breaks_taken": "mola alındı",
     "session_type": "Oturum Türü",
-    "change_type": "Oturum Türünü Değiştir"
+    "change_type": "Oturum Türünü Değiştir",
+    "active_banner_title": "Oturum devam ediyor",
+    "pending_survey_title": "Oturumunu tamamla",
+    "tap_to_return": "Geri dönmek için dokun",
+    "tap_to_complete": "Oturum sonrası anketi tamamla",
+    "return_to_session": "Oturuma Dön",
+    "complete_survey": "Anketi Tamamla"
   },
   "pre_survey": {
     "title": "Oturum Öncesi Anket",
@@ -173,6 +181,7 @@
     "no_sessions": "Henüz tamamlanmış oturum yok.",
     "complete_more": "Kişiselleştirilmiş öneriler için daha fazla oturum tamamla.",
     "ai_recommendation": "YZ Önerisi",
+    "go_to_insights": "İçgörülerimi Gör",
     "session_complete": "OTURUM TAMAMLANDI",
     "your_results": "Sonuçların",
     "productivity_score": "VERİMLİLİK PUANI",

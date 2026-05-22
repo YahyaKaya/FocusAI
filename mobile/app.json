@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "Focus AI",
     "slug": "focus-ai-yahya",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "focusai",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {

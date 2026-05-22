@@ -594,10 +594,13 @@ function SingleSessionInsights({ id }: { id: string }) {
 
         <TouchableOpacity
           style={ss.homeBtn}
-          onPress={() => router.replace('/(app)')}
+          onPress={() => {
+            router.setParams({ id: undefined });
+            router.replace('/(app)/insights');
+          }}
           activeOpacity={0.85}
         >
-          <Text style={ss.homeBtnText}>{t('common.continue')}</Text>
+          <Text style={ss.homeBtnText}>{t('insights.go_to_insights')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -612,7 +615,7 @@ function InsightsOverview() {
   const ss = useMemo(() => makeStyles(colors), [colors]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [period, setPeriod] = useState<'daily' | 'weekly'>('weekly');
 
   useFocusEffect(
@@ -622,8 +625,7 @@ function InsightsOverview() {
         try {
           const [sessionsData, recData] = await Promise.all([
             api.get<{ sessions: Session[] }>('/sessions'),
-            api
-              .get<{ recommendation: Recommendation | null }>('/recommendations/latest')
+            api.get<{ recommendation: Recommendation | null }>('/recommendations/latest')
               .catch(() => ({ recommendation: null })),
           ]);
           setSessions(sessionsData.sessions);
@@ -1019,6 +1021,7 @@ function InsightsOverview() {
 
 export default function InsightsScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
+
   if (id) return <SingleSessionInsights id={id} />;
   return <InsightsOverview />;
 }

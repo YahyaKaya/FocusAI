@@ -83,6 +83,7 @@ export function useSessionNotification(
   plannedDuration: number,
   elapsed: number,
   isActive: boolean,
+  sessionStartTime?: number,
 ) {
   const permissionGranted = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -97,20 +98,27 @@ export function useSessionNotification(
       if (!permissionGranted.current) return;
 
       // Set shared state for background task
-      startTimeRef.current = Date.now() - elapsed * 1000;
+      startTimeRef.current = sessionStartTime ?? Date.now();
       _sessionStartTime = startTimeRef.current;
       _plannedDuration = plannedDuration;
       _sessionType = sessionType;
 
       // Show initial notification
-      await showOrUpdateNotification(elapsed, plannedDuration, sessionType);
+      await showOrUpdateNotification(0, plannedDuration, sessionType);
 
-      // Register background fetch (fires every 10s minimum Android allows ~15min but we use foreground interval)
-      await BackgroundFetch.registerTaskAsync(BACKGROUND_TASK, {
-        minimumInterval: 60,
-        stopOnTerminate: true,
-        startOnBoot: false,
-      });
+      try {
+        const status = await BackgroundFetch.getStatusAsync();
+        if (status !== BackgroundFetch.BackgroundFetchStatus.Restricted) {
+          await BackgroundFetch.unregisterTaskAsync(BACKGROUND_TASK).catch(() => {});
+          await BackgroundFetch.registerTaskAsync(BACKGROUND_TASK, {
+            minimumInterval: 60,
+            stopOnTerminate: true,
+            startOnBoot: false,
+          });
+        }
+      } catch (e) {
+        console.warn('BackgroundFetch registration failed:', e);
+      }
     }
 
     setup();
@@ -122,7 +130,7 @@ export function useSessionNotification(
       if (intervalRef.current) clearInterval(intervalRef.current);
       BackgroundFetch.unregisterTaskAsync(BACKGROUND_TASK).catch(() => {});
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Foreground interval — updates every 10 seconds when app is active
   useEffect(() => {
@@ -181,3 +189,5 @@ export function useSessionNotification(
     }
   }, [isActive]);
 }
+
+export { cancelSessionNotification };
