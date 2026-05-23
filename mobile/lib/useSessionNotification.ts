@@ -1,15 +1,6 @@
 import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
-import * as TaskManager from 'expo-task-manager';
-import * as BackgroundFetch from 'expo-background-fetch';
 import { AppState, Platform } from 'react-native';
-
-const BACKGROUND_TASK = 'session-timer-task';
-
-// Shared state accessible by background task
-let _sessionStartTime: number | null = null;
-let _plannedDuration: number = 0;
-let _sessionType: string = 'OTHER';
 
 const SESSION_EMOJI: Record<string, string> = {
   READING: '📖',
@@ -25,128 +16,119 @@ function formatElapsed(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+// Set handler — allow notifications to show as banners when app is foregrounded
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: false,
+    shouldShowList: false,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
+async function setupNotificationChannel() {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync('session-timer', {
+    name: 'Focus Session Timer',
+    importance: Notifications.AndroidImportance.LOW,
+    sound: null,
+    vibrationPattern: null,
+    enableVibrate: false,
+    showBadge: false,
+  });
+}
+
 async function requestPermissions(): Promise<boolean> {
   if (Platform.OS !== 'android') return false;
   const { status } = await Notifications.requestPermissionsAsync();
   return status === 'granted';
 }
 
-async function showOrUpdateNotification(elapsed: number, plannedDuration: number, sessionType: string) {
+export async function showOrUpdateNotification(
+  elapsed: number,
+  plannedDuration: number,
+  sessionType: string,
+) {
+  if (Platform.OS !== 'android') return;
   const emoji = SESSION_EMOJI[sessionType] ?? '🎯';
   const elapsedStr = formatElapsed(elapsed);
   const progress = plannedDuration > 0
-    ? `${Math.round((elapsed / (plannedDuration * 60)) * 100)}% complete`
-    : 'In progress';
+    ? `${Math.round((elapsed / (plannedDuration * 60)) * 100)}%`
+    : '';
 
   await Notifications.scheduleNotificationAsync({
     identifier: 'session-timer',
     content: {
       title: `${emoji} Focus Session Active`,
-      body: `${elapsedStr} · ${progress}`,
+      body: progress ? `${elapsedStr} · ${progress} complete` : elapsedStr,
+      data: { screen: 'session' },
       sticky: true,
       autoDismiss: false,
-      data: { screen: 'session' },
     },
     trigger: null,
   });
 }
 
-async function cancelSessionNotification() {
-  await Notifications.dismissNotificationAsync('session-timer');
-  await Notifications.cancelScheduledNotificationAsync('session-timer');
+export async function cancelSessionNotification() {
+  if (Platform.OS !== 'android') return;
+  await Notifications.dismissNotificationAsync('session-timer').catch(() => {});
+  await Notifications.cancelScheduledNotificationAsync('session-timer').catch(() => {});
 }
-
-// Register background task
-if (!TaskManager.isTaskDefined(BACKGROUND_TASK)) {
-  TaskManager.defineTask(BACKGROUND_TASK, async () => {
-    if (_sessionStartTime === null) {
-      return BackgroundFetch.BackgroundFetchResult.NoData;
-    }
-    const elapsed = Math.floor((Date.now() - _sessionStartTime) / 1000);
-    await showOrUpdateNotification(elapsed, _plannedDuration, _sessionType);
-    return BackgroundFetch.BackgroundFetchResult.NewData;
-  });
-}
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: false,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: false,
-    shouldShowList: false,
-  }),
-});
 
 export function useSessionNotification(
   sessionType: string,
   plannedDuration: number,
-  elapsed: number,
+  _elapsed: number,
   isActive: boolean,
   sessionStartTime?: number,
 ) {
   const permissionGranted = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startTimeRef = useRef<number>(sessionStartTime ?? Date.now());
   const appStateRef = useRef(AppState.currentState);
-  const startTimeRef = useRef<number | null>(null);
 
+  // Setup on mount
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
     async function setup() {
+      await setupNotificationChannel();
       permissionGranted.current = await requestPermissions();
       if (!permissionGranted.current) return;
 
-      // Set shared state for background task
       startTimeRef.current = sessionStartTime ?? Date.now();
-      _sessionStartTime = startTimeRef.current;
-      _plannedDuration = plannedDuration;
-      _sessionType = sessionType;
-
-      // Show initial notification
-      await showOrUpdateNotification(0, plannedDuration, sessionType);
-
-      try {
-        const status = await BackgroundFetch.getStatusAsync();
-        if (status !== BackgroundFetch.BackgroundFetchStatus.Restricted) {
-          await BackgroundFetch.unregisterTaskAsync(BACKGROUND_TASK).catch(() => {});
-          await BackgroundFetch.registerTaskAsync(BACKGROUND_TASK, {
-            minimumInterval: 60,
-            stopOnTerminate: true,
-            startOnBoot: false,
-          });
-        }
-      } catch (e) {
-        console.warn('BackgroundFetch registration failed:', e);
-      }
+      await showOrUpdateNotification(
+        Math.floor((Date.now() - startTimeRef.current) / 1000),
+        plannedDuration,
+        sessionType,
+      );
     }
 
     setup();
 
     return () => {
-      // Cleanup on unmount (session ended)
       cancelSessionNotification();
-      _sessionStartTime = null;
       if (intervalRef.current) clearInterval(intervalRef.current);
-      BackgroundFetch.unregisterTaskAsync(BACKGROUND_TASK).catch(() => {});
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Foreground interval — updates every 10 seconds when app is active
+  // Keep sessionStartTime ref in sync
+  useEffect(() => {
+    if (sessionStartTime) startTimeRef.current = sessionStartTime;
+  }, [sessionStartTime]);
+
+  // Foreground ticker — every 10 seconds while active
   useEffect(() => {
     if (Platform.OS !== 'android') return;
-    if (!isActive) {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      return;
-    }
 
-    intervalRef.current = setInterval(async () => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+
+    if (!isActive) return;
+
+    intervalRef.current = setInterval(() => {
       if (!permissionGranted.current) return;
-      const currentElapsed = startTimeRef.current
-        ? Math.floor((Date.now() - startTimeRef.current) / 1000)
-        : elapsed;
-      _sessionStartTime = startTimeRef.current;
-      await showOrUpdateNotification(currentElapsed, plannedDuration, sessionType);
+      const currentElapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      showOrUpdateNotification(currentElapsed, plannedDuration, sessionType);
     }, 10000);
 
     return () => {
@@ -154,40 +136,30 @@ export function useSessionNotification(
     };
   }, [isActive, sessionType, plannedDuration]);
 
-  // Update shared state when session type or duration changes
-  useEffect(() => {
-    _sessionType = sessionType;
-    _plannedDuration = plannedDuration;
-  }, [sessionType, plannedDuration]);
-
-  // Handle app state transitions
+  // AppState — update immediately when coming back to foreground
   useEffect(() => {
     if (Platform.OS !== 'android') return;
 
     const sub = AppState.addEventListener('change', (nextState) => {
       if (
         appStateRef.current.match(/inactive|background/) &&
-        nextState === 'active'
+        nextState === 'active' &&
+        isActive &&
+        permissionGranted.current
       ) {
-        // App came to foreground — update notification immediately
-        if (startTimeRef.current && permissionGranted.current) {
-          const currentElapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-          showOrUpdateNotification(currentElapsed, plannedDuration, sessionType);
-        }
+        const currentElapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        showOrUpdateNotification(currentElapsed, plannedDuration, sessionType);
       }
       appStateRef.current = nextState;
     });
 
     return () => sub.remove();
-  }, [sessionType, plannedDuration]);
+  }, [isActive, sessionType, plannedDuration]);
 
-  // Cancel notification when session is no longer active
+  // Cancel when session ends
   useEffect(() => {
     if (!isActive) {
       cancelSessionNotification();
-      _sessionStartTime = null;
     }
   }, [isActive]);
 }
-
-export { cancelSessionNotification };

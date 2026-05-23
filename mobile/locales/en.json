@@ -22,7 +22,18 @@
     "register_button": "Create Account",
     "no_account": "Don't have an account?",
     "have_account": "Already have an account?",
-    "logout": "Logout"
+    "logout": "Logout",
+    "create_account": "Create your account",
+    "name_required": "Please enter your name",
+    "email_required": "Please enter your email",
+    "password_too_short": "Password must be at least 6 characters",
+    "check_email": "Check your email",
+    "confirmation_sent": "We sent a confirmation link to {{email}}. Click it to activate your account.",
+    "go_to_login": "Go to Login",
+    "name_placeholder": "Your full name",
+    "email_placeholder": "your@email.com",
+    "password_placeholder": "At least 6 characters",
+    "password_hint": "Minimum 6 characters"
   },
   "home": {
     "tab_label": "Home",
@@ -124,7 +135,11 @@
     "session_duration": "Session Duration",
     "none": "None",
     "few": "A Few",
-    "many": "Many"
+    "many": "Many",
+    "test_score": "Test Score",
+    "test_correct": "Correct answers",
+    "test_total": "Total questions",
+    "test_score_invalid": "Correct answers cannot exceed total questions"
   },
   "history": {
     "tab_label": "Sessions",

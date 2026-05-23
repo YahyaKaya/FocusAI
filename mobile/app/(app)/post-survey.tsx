@@ -36,24 +36,34 @@ function EmojiSliderRow({
   emojis: string[];
   colors: any;
 }) {
+  const emojiIndex = Math.floor(value) - 1;
+  const safeIndex = Math.min(Math.max(emojiIndex, 0), emojis.length - 1);
+
   return (
     <View className="mb-10">
       <View className="flex-row justify-between items-center mb-2">
         <Text className="text-base font-bold text-on-surface dark:text-[#e8f0eb]">{label}</Text>
-        <Text style={{ fontSize: 28 }}>{emojis[value - 1]}</Text>
+        <Text style={{ fontSize: 28 }}>{emojis[safeIndex]}</Text>
       </View>
       <Slider
         style={{ width: '100%', height: 40 }}
         minimumValue={1}
         maximumValue={5}
-        step={1}
+        step={0.5}
         value={value}
         onValueChange={onChange}
         minimumTrackTintColor={colors.primary}
         maximumTrackTintColor={colors.surfaceContainerHigh}
         thumbTintColor={colors.primary}
       />
-      <View className="flex-row justify-between px-1">
+      <Text style={{
+        textAlign: 'center',
+        fontSize: 12,
+        fontWeight: '700',
+        color: colors.primary,
+        marginTop: 4,
+      }}>{value}</Text>
+      <View className="flex-row justify-between px-1 mt-2">
         <Text className="text-xs text-on-surface-variant dark:text-[#9ab0a0]">1</Text>
         <Text className="text-xs text-on-surface-variant dark:text-[#9ab0a0]">5</Text>
       </View>
@@ -75,6 +85,8 @@ export default function PostSurveyScreen() {
   const [notes, setNotes] = useState("");
   const [sessionType, setSessionType] = useState<string>(initialType ?? 'OTHER');
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [testCorrect, setTestCorrect] = useState('');
+  const [testTotal, setTestTotal] = useState('');
   const { clearPendingPostSurvey } = useSessionContext();
   const [loading, setLoading] = useState(false);
 
@@ -96,10 +108,24 @@ export default function PostSurveyScreen() {
     setSubmitError(null);
     try {
       await api.patch(`/sessions/${id}/type`, { session_type: sessionType });
+      let finalProductivity = productivity;
+      if (sessionType === 'TEST' && testTotal && testCorrect) {
+        const total = parseFloat(testTotal);
+        const correct = parseFloat(testCorrect);
+        if (correct > total) {
+          setSubmitError(t('post_survey.test_score_invalid'));
+          setLoading(false);
+          return;
+        }
+        if (total > 0) {
+          finalProductivity = Math.min(5, Math.max(1, (correct / total) * 4 + 1));
+          finalProductivity = Math.round(finalProductivity * 2) / 2; // round to nearest 0.5
+        }
+      }
       await api.post<{ productivity_score: number }>(
         `/sessions/${id}/post-survey`,
         {
-          productivity,
+          productivity: finalProductivity,
           focus,
           satisfaction,
           distraction,
@@ -205,13 +231,47 @@ export default function PostSurveyScreen() {
         </View>
 
         {/* Sliders */}
-        <EmojiSliderRow
-          label={t("post_survey.productivity")}
-          value={productivity}
-          onChange={setProductivity}
-          emojis={['😞', '😕', '😐', '🙂', '🚀']}
-          colors={colors}
-        />
+        {sessionType === 'TEST' ? (
+          <View className="mb-10">
+            <Text className="text-base font-bold text-on-surface dark:text-[#e8f0eb] mb-4">
+              {t('post_survey.test_score')}
+            </Text>
+            <View className="flex-row items-center gap-3">
+              <TextInput
+                className="flex-1 h-14 px-5 rounded-xl bg-surface-container-lowest dark:bg-[#0a1510] text-on-surface dark:text-[#e8f0eb] text-sm"
+                value={testCorrect}
+                onChangeText={setTestCorrect}
+                keyboardType="numeric"
+                placeholder={t('post_survey.test_correct')}
+                placeholderTextColor={colors.outlineVariant}
+                style={{ borderWidth: 1, borderColor: colors.outlineVariantBorder }}
+              />
+              <Text className="text-on-surface-variant dark:text-[#9ab0a0] text-lg font-bold">/</Text>
+              <TextInput
+                className="flex-1 h-14 px-5 rounded-xl bg-surface-container-lowest dark:bg-[#0a1510] text-on-surface dark:text-[#e8f0eb] text-sm"
+                value={testTotal}
+                onChangeText={setTestTotal}
+                keyboardType="numeric"
+                placeholder={t('post_survey.test_total')}
+                placeholderTextColor={colors.outlineVariant}
+                style={{ borderWidth: 1, borderColor: colors.outlineVariantBorder }}
+              />
+            </View>
+            {testCorrect && testTotal && parseFloat(testTotal) > 0 && (
+              <Text className="text-xs text-on-surface-variant dark:text-[#9ab0a0] mt-2">
+                {Math.round((parseFloat(testCorrect) / parseFloat(testTotal)) * 100)}% → {t('post_survey.productivity_score')}: {Math.round(Math.min(5, Math.max(1, (parseFloat(testCorrect) / parseFloat(testTotal)) * 4 + 1)) * 2) / 2}/5
+              </Text>
+            )}
+          </View>
+        ) : (
+          <EmojiSliderRow
+            label={t("post_survey.productivity")}
+            value={productivity}
+            onChange={setProductivity}
+            emojis={['😞', '😕', '😐', '🙂', '🚀']}
+            colors={colors}
+          />
+        )}
         <EmojiSliderRow
           label={t("post_survey.focus")}
           value={focus}

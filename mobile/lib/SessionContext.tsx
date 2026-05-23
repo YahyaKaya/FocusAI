@@ -13,6 +13,7 @@ type SessionContextType = SessionState & {
   startSession: (id: string, type: string) => void;
   endSession: (id: string) => void;
   clearPendingPostSurvey: () => void;
+  resetSession: () => void;
 };
 
 const STORAGE_KEY = 'focus_ai_session_state';
@@ -29,6 +30,7 @@ const SessionContext = createContext<SessionContextType>({
   startSession: () => {},
   endSession: () => {},
   clearPendingPostSurvey: () => {},
+  resetSession: () => {},
 });
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
@@ -96,8 +98,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     persist(defaultState);
   }
 
+  function resetSession() {
+    persist(defaultState);
+  }
+
   return (
-    <SessionContext.Provider value={{ ...state, startSession, endSession, clearPendingPostSurvey }}>
+    <SessionContext.Provider value={{ ...state, startSession, endSession, clearPendingPostSurvey, resetSession }}>
       {children}
     </SessionContext.Provider>
   );

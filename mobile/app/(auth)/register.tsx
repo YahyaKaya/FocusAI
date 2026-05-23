@@ -20,8 +20,12 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   async function handleRegister() {
+    if (!name.trim()) { setError(t('auth.name_required')); return; }
+    if (!email.trim()) { setError(t('auth.email_required')); return; }
+    if (password.length < 6) { setError(t('auth.password_too_short')); return; }
     setLoading(true);
     setError(null);
     const { error } = await supabase.auth.signUp({
@@ -29,8 +33,34 @@ export default function RegisterScreen() {
       password,
       options: { data: { full_name: name } },
     });
-    if (error) setError(error.message);
+    if (error) {
+      setError(error.message);
+    } else {
+      setSuccess(true);
+    }
     setLoading(false);
+  }
+
+  if (success) {
+    return (
+      <View className="flex-1 bg-surface justify-center items-center px-8">
+        <Text style={{ fontSize: 48, marginBottom: 24 }}>📬</Text>
+        <Text className="font-bold text-2xl text-on-surface text-center mb-4">
+          {t('auth.check_email')}
+        </Text>
+        <Text className="text-on-surface-variant text-base text-center mb-12 leading-relaxed">
+          {t('auth.confirmation_sent', { email })}
+        </Text>
+        <TouchableOpacity
+          className="bg-primary h-14 rounded-xl items-center justify-center w-full"
+          onPress={() => router.replace('/(auth)/login')}
+        >
+          <Text className="text-on-primary font-semibold text-base">
+            {t('auth.go_to_login')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
@@ -43,28 +73,23 @@ export default function RegisterScreen() {
           {t("common.app_name")}
         </Text>
         <Text className="text-on-surface-variant text-base mb-12">
-          {t("auth.register")}
+          {t("auth.create_account")}
         </Text>
-
         <View className="gap-4">
           <View>
-            <Text className="text-sm text-on-surface-variant mb-2">
-              {t("auth.name")}
-            </Text>
+            <Text className="text-sm text-on-surface-variant mb-2">{t("auth.name")}</Text>
             <TextInput
               className="bg-surface-container-lowest rounded-xl px-4 h-14 text-on-surface"
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
               autoComplete="name"
+              placeholder={t("auth.name_placeholder")}
               placeholderTextColor="#586064"
             />
           </View>
-
           <View>
-            <Text className="text-sm text-on-surface-variant mb-2">
-              {t("auth.email")}
-            </Text>
+            <Text className="text-sm text-on-surface-variant mb-2">{t("auth.email")}</Text>
             <TextInput
               className="bg-surface-container-lowest rounded-xl px-4 h-14 text-on-surface"
               value={email}
@@ -72,26 +97,24 @@ export default function RegisterScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
+              placeholder={t("auth.email_placeholder")}
               placeholderTextColor="#586064"
             />
           </View>
-
           <View>
-            <Text className="text-sm text-on-surface-variant mb-2">
-              {t("auth.password")}
-            </Text>
+            <Text className="text-sm text-on-surface-variant mb-2">{t("auth.password")}</Text>
             <TextInput
               className="bg-surface-container-lowest rounded-xl px-4 h-14 text-on-surface"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoComplete="new-password"
+              placeholder={t("auth.password_placeholder")}
               placeholderTextColor="#586064"
             />
+            <Text className="text-xs text-on-surface-variant mt-1 ml-1">{t("auth.password_hint")}</Text>
           </View>
-
           {error && <Text className="text-error text-sm">{error}</Text>}
-
           <TouchableOpacity
             className="bg-primary h-14 rounded-xl items-center justify-center mt-4"
             onPress={handleRegister}
@@ -100,21 +123,13 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color="#e1ffec" />
             ) : (
-              <Text className="text-on-primary font-semibold text-base">
-                {t("auth.register")}
-              </Text>
+              <Text className="text-on-primary font-semibold text-base">{t("auth.register")}</Text>
             )}
           </TouchableOpacity>
-
-          <TouchableOpacity
-            className="items-center mt-4"
-            onPress={() => router.back()}
-          >
+          <TouchableOpacity className="items-center mt-4" onPress={() => router.back()}>
             <Text className="text-on-surface-variant text-sm">
               {t("auth.have_account")}{" "}
-              <Text className="text-primary font-semibold">
-                {t("auth.login")}
-              </Text>
+              <Text className="text-primary font-semibold">{t("auth.login")}</Text>
             </Text>
           </TouchableOpacity>
         </View>

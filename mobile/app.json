@@ -49,7 +49,16 @@
         {
           "icon": "./assets/images/icon.png",
           "color": "#2c694e",
-          "defaultChannel": "session-timer"
+          "defaultChannel": "session-timer",
+          "channels": [
+            {
+              "name": "session-timer",
+              "importance": "low",
+              "sound": false,
+              "vibrate": false,
+              "badge": false
+            }
+          ]
         }
       ]
     ],

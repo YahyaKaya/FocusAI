@@ -22,7 +22,18 @@
     "register_button": "Hesap Oluştur",
     "no_account": "Hesabın yok mu?",
     "have_account": "Zaten hesabın var mı?",
-    "logout": "Çıkış Yap"
+    "logout": "Çıkış Yap",
+    "create_account": "Hesap oluştur",
+    "name_required": "Lütfen adınızı girin",
+    "email_required": "Lütfen e-postanızı girin",
+    "password_too_short": "Şifre en az 6 karakter olmalıdır",
+    "check_email": "E-postanı kontrol et",
+    "confirmation_sent": "{{email}} adresine bir onay bağlantısı gönderdik. Hesabını etkinleştirmek için tıkla.",
+    "go_to_login": "Girişe Git",
+    "name_placeholder": "Tam adınız",
+    "email_placeholder": "eposta@adresiniz.com",
+    "password_placeholder": "En az 6 karakter",
+    "password_hint": "Minimum 6 karakter"
   },
   "home": {
     "tab_label": "Ana Sayfa",
@@ -124,7 +135,11 @@
     "session_duration": "Oturum Süresi",
     "none": "Yok",
     "few": "Az",
-    "many": "Çok"
+    "many": "Çok",
+    "test_score": "Test Puanı",
+    "test_correct": "Doğru sayısı",
+    "test_total": "Toplam soru",
+    "test_score_invalid": "Doğru sayısı toplam sorudan fazla olamaz"
   },
   "history": {
     "tab_label": "Oturumlar",

@@ -8,11 +8,13 @@ import { useThemeContext } from "../../lib/ThemeContext";
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 import { api } from '../../lib/api';
+import { useSessionContext } from '../../lib/SessionContext';
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
   const [language, setLanguage] = useState(i18n.language);
   const { mode, setMode } = useThemeContext();
+  const { resetSession } = useSessionContext();
   const isDark = mode === "dark";
   const [userEmail, setUserEmail] = useState<string>('');
   const [userName, setUserName] = useState<string>('');
@@ -34,6 +36,7 @@ export default function SettingsScreen() {
   }
 
   async function handleLogout() {
+    resetSession();
     await supabase.auth.signOut();
   }
 

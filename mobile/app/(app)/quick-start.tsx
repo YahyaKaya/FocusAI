@@ -11,24 +11,34 @@ import { useSessionContext } from '../../lib/SessionContext';
 function EmojiSliderRow({ label, value, onChange, emojis, colors }: {
   label: string; value: number; onChange: (v: number) => void; emojis: string[]; colors: any;
 }) {
+  const emojiIndex = Math.floor(value) - 1;
+  const safeIndex = Math.min(Math.max(emojiIndex, 0), emojis.length - 1);
+
   return (
     <View style={{ marginBottom: 32 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <Text style={{ fontSize: 16, fontWeight: '700', color: colors.onSurface }}>{label}</Text>
-        <Text style={{ fontSize: 28 }}>{emojis[value - 1]}</Text>
+        <Text style={{ fontSize: 28 }}>{emojis[safeIndex]}</Text>
       </View>
       <Slider
         style={{ width: '100%', height: 40 }}
         minimumValue={1}
         maximumValue={5}
-        step={1}
+        step={0.5}
         value={value}
         onValueChange={onChange}
         minimumTrackTintColor={colors.primary}
         maximumTrackTintColor={colors.surfaceContainerHigh}
         thumbTintColor={colors.primary}
       />
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+      <Text style={{
+        textAlign: 'center',
+        fontSize: 12,
+        fontWeight: '700',
+        color: colors.primary,
+        marginTop: 4,
+      }}>{value}</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4, marginTop: 8 }}>
         <Text style={{ fontSize: 11, color: colors.onSurfaceVariant }}>1</Text>
         <Text style={{ fontSize: 11, color: colors.onSurfaceVariant }}>5</Text>
       </View>
