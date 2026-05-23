@@ -34,46 +34,37 @@ const SessionContext = createContext<SessionContextType>({
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<SessionState>(defaultState);
 
-  // Load persisted state on mount, validating against DB to clear stale state
+  // Load persisted state on mount — apply cache immediately, validate in background
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then(async (raw) => {
+    AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
       if (!raw) return;
       try {
         const saved: SessionState = JSON.parse(raw);
+        // Set state immediately from cache — don't wait for backend
+        setState(saved);
 
+        // Validate in background — update if stale
         if (saved.pendingPostSurveyId) {
-          try {
-            const data = await api.get<{ session: { post_survey: any } }>(
-              `/sessions/${saved.pendingPostSurveyId}`
-            );
+          api.get<{ session: { post_survey: any } }>(
+            `/sessions/${saved.pendingPostSurveyId}`
+          ).then((data: { session: { post_survey: any } }) => {
             if (data.session?.post_survey) {
               persist({ ...defaultState });
-              return;
             }
-          } catch {
-            persist({ ...defaultState });
-            return;
-          }
+          }).catch(() => {});
         }
 
         if (saved.activeSessionId) {
-          try {
-            const data = await api.get<{ session: { status: string; post_survey: any } }>(
-              `/sessions/${saved.activeSessionId}`
-            );
+          api.get<{ session: { status: string; post_survey: any } }>(
+            `/sessions/${saved.activeSessionId}`
+          ).then((data: { session: { status: string; post_survey: any } }) => {
             if (data.session?.status === 'COMPLETED' && !data.session?.post_survey) {
               persist({ ...defaultState, pendingPostSurveyId: saved.activeSessionId });
-              return;
             } else if (data.session?.status === 'COMPLETED' && data.session?.post_survey) {
               persist({ ...defaultState });
-              return;
             }
-          } catch {
-            // Can't reach backend — keep saved state
-          }
+          }).catch(() => {});
         }
-
-        setState(saved);
       } catch {}
     });
   }, []);

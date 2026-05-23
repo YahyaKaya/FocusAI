@@ -32,7 +32,8 @@ export function SessionBanner() {
   }, [activeSessionId, activeSessionStart]);
 
   if (!activeSessionId && !pendingPostSurveyId) return null;
-  if (pathname.includes('/session') && !pathname.includes('post-survey')) return null;
+  if (pathname.includes('/session')) return null;
+  if (pathname.includes('post-survey')) return null;
 
   const minutes = Math.floor(elapsed / 60);
   const seconds = elapsed % 60;
@@ -47,41 +48,49 @@ export function SessionBanner() {
     }
   }
 
+  const bannerColor = activeSessionId ? colors.primary : colors.scoreAmber ?? '#f59e0b';
+
   return (
-    <TouchableOpacity
-      onPress={handlePress}
-      activeOpacity={0.85}
-      style={{
-        marginHorizontal: 16,
-        marginTop: 12,
-        marginBottom: 4,
-        borderRadius: 14,
-        backgroundColor: activeSessionId ? colors.primary : colors.scoreAmber ?? '#f59e0b',
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        gap: 10,
-      }}
-    >
-      <Text style={{ fontSize: 18 }}>{activeSessionId ? emoji : '⚠️'}</Text>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: activeSessionId ? colors.onPrimary : '#fff', fontWeight: '700', fontSize: 14 }}>
-          {activeSessionId
-            ? t('session.active_banner_title')
-            : t('session.pending_survey_title')}
-        </Text>
-        <Text style={{ color: activeSessionId ? colors.onPrimary : '#fff', fontSize: 12, opacity: 0.85 }}>
-          {activeSessionId
-            ? `${timeStr} · ${t('session.tap_to_return')}`
-            : t('session.tap_to_complete')}
-        </Text>
-      </View>
-      <MaterialCommunityIcons
-        name="arrow-right"
-        size={20}
-        color={activeSessionId ? colors.onPrimary : '#fff'}
-      />
-    </TouchableOpacity>
+    <View style={{ backgroundColor: bannerColor }}>
+      <TouchableOpacity
+        onPress={handlePress}
+        activeOpacity={0.85}
+        style={{
+          backgroundColor: bannerColor,
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingHorizontal: 20,
+          paddingVertical: 12,
+          marginTop: 16,
+          borderBottomLeftRadius: 12,
+          borderBottomRightRadius: 12,
+          gap: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 4,
+          elevation: 3,
+        }}
+      >
+        <Text style={{ fontSize: 16 }}>{activeSessionId ? emoji : '⚠️'}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: colors.onPrimary, fontWeight: '700', fontSize: 13 }}>
+            {activeSessionId
+              ? t('session.active_banner_title')
+              : t('session.pending_survey_title')}
+          </Text>
+          <Text style={{ color: colors.onPrimary, fontSize: 11, opacity: 0.85 }}>
+            {activeSessionId
+              ? `${timeStr} · ${t('session.tap_to_return')}`
+              : t('session.tap_to_complete')}
+          </Text>
+        </View>
+        <MaterialCommunityIcons
+          name="arrow-right"
+          size={18}
+          color={colors.onPrimary}
+        />
+      </TouchableOpacity>
+    </View>
   );
 }

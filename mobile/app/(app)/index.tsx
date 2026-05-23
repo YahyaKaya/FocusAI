@@ -277,15 +277,17 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* Secondary CTA */}
-        <TouchableOpacity
-          className="h-10 self-center px-6 items-center justify-center rounded-lg bg-surface-container-highest/60 dark:bg-[#2a3d2a]/60"
-          activeOpacity={0.7}
-          onPress={() => router.push("/(app)/pre-survey?custom=true")}
-        >
-          <Text className="text-sm font-semibold text-on-surface dark:text-[#e8f0eb]">
-            {t("home.custom_session")}
-          </Text>
-        </TouchableOpacity>
+        {!activeSessionId && !pendingPostSurveyId && (
+          <TouchableOpacity
+            className="h-10 self-center px-6 items-center justify-center rounded-lg bg-surface-container-highest/60 dark:bg-[#2a3d2a]/60"
+            activeOpacity={0.7}
+            onPress={() => router.push("/(app)/pre-survey?custom=true")}
+          >
+            <Text className="text-sm font-semibold text-on-surface dark:text-[#e8f0eb]">
+              {t("home.custom_session")}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Secondary Metrics Bento Grid — hidden when no sessions */}

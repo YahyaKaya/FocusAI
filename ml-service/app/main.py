@@ -88,7 +88,7 @@ class RecommendResponse(BaseModel):
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     from app.model import get_global_model
     return {

@@ -607,6 +607,10 @@ function SingleSessionInsights({ id }: { id: string }) {
   );
 }
 
+let _insightsCache: any[] = [];
+let _insightsCacheTime = 0;
+const INSIGHTS_CACHE_TTL = 30000;
+
 // ── Overview view ─────────────────────────────────────────────────────────────
 
 function InsightsOverview() {
@@ -621,13 +625,25 @@ function InsightsOverview() {
   useFocusEffect(
     useCallback(() => {
       async function fetchData() {
-        setLoading(true);
+        const now = Date.now();
+        const useCache = _insightsCache.length > 0 && now - _insightsCacheTime < INSIGHTS_CACHE_TTL;
+
+        if (!useCache) setLoading(true);
+
         try {
           const [sessionsData, recData] = await Promise.all([
-            api.get<{ sessions: Session[] }>('/sessions'),
+            useCache
+              ? Promise.resolve({ sessions: _insightsCache })
+              : api.get<{ sessions: Session[] }>('/sessions/all'),
             api.get<{ recommendation: Recommendation | null }>('/recommendations/latest')
               .catch(() => ({ recommendation: null })),
           ]);
+
+          if (!useCache) {
+            _insightsCache = sessionsData.sessions;
+            _insightsCacheTime = Date.now();
+          }
+
           setSessions(sessionsData.sessions);
           setRecommendation(recData.recommendation);
         } catch (e) {

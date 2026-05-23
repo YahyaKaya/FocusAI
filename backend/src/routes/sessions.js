@@ -119,9 +119,28 @@ export async function sessionRoutes(fastify) {
     const sessions = await prisma.session.findMany({
       where: { user_id: userId },
       orderBy: { start_time: 'desc' },
-      include: {
-        pre_survey: true,
-        post_survey: true,
+      take: 50,
+    })
+
+    return reply.send({ sessions })
+  })
+
+  // Get all sessions for insights (no limit, lightweight select)
+  fastify.get('/sessions/all', {
+    onRequest: [fastify.authenticate],
+  }, async (request, reply) => {
+    const userId = request.user.sub
+
+    const sessions = await prisma.session.findMany({
+      where: { user_id: userId },
+      orderBy: { start_time: 'desc' },
+      select: {
+        id: true,
+        session_type: true,
+        actual_duration: true,
+        productivity_score: true,
+        start_time: true,
+        status: true,
       },
     })
 

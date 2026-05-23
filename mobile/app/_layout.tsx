@@ -122,17 +122,14 @@ export default function RootLayout() {
 
         setSession(currentSession);
 
-        // Sync with backend if authenticated
-        if (currentSession && api) {
-          try {
-            await api.post("/auth/sync", {});
-          } catch (error) {
-            console.warn("Failed to sync auth with backend:", error);
-            // Don't block on sync failure
-          }
-        }
-
         setInitialized(true);
+
+        // Sync with backend in background — never block initialization
+        if (currentSession && api) {
+          api.post("/auth/sync", {}).catch((error: Error) => {
+            console.warn("Failed to sync auth with backend:", error);
+          });
+        }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         console.error("App initialization failed:", err);
@@ -151,11 +148,9 @@ export default function RootLayout() {
         async (_event: string, newSession: Session | null) => {
           setSession(newSession);
           if (newSession && api) {
-            try {
-              await api.post("/auth/sync", {});
-            } catch (error) {
+            api.post("/auth/sync", {}).catch((error: Error) => {
               console.warn("Failed to sync auth state:", error);
-            }
+            });
           }
         },
       );

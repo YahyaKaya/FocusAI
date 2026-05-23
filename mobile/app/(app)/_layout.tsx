@@ -13,7 +13,9 @@ export default function AppLayout() {
 
   return (
     <View style={{ flex: 1 }}>
-      <SessionBanner />
+      <View style={{ backgroundColor: colors.surface }}>
+        <SessionBanner />
+      </View>
       <Tabs
         screenOptions={{
           headerShown: false,

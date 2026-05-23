@@ -208,6 +208,10 @@ function makeStyles(colors: AppColors) {
   });
 }
 
+let _sessionsCache: any[] = [];
+let _cacheTime = 0;
+const CACHE_TTL = 30000; // 30 seconds
+
 export default function HistoryScreen() {
   const { t } = useTranslation();
   const colors = useTheme();
@@ -219,9 +223,16 @@ export default function HistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       async function fetchSessions() {
+        const now = Date.now();
+        if (_sessionsCache.length > 0 && now - _cacheTime < CACHE_TTL) {
+          setSessions(_sessionsCache);
+          return;
+        }
         setLoading(true);
         try {
           const data = await api.get<{ sessions: Session[] }>('/sessions');
+          _sessionsCache = data.sessions;
+          _cacheTime = Date.now();
           setSessions(data.sessions);
         } catch (e) {
           console.error(e);
@@ -245,6 +256,7 @@ export default function HistoryScreen() {
           onPress: async () => {
             try {
               await api.delete(`/sessions/${id}`);
+              _cacheTime = 0;
               setSessions((prev) => prev.filter((s) => s.id !== id));
             } catch {
               Alert.alert(t('common.error'), t('common.error_retry'));
