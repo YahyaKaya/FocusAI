@@ -4,7 +4,7 @@
 > Bilgisayar Mühendisliği Bölümü — Lisans Bitirme Projesi  
 > **Öğrenci:** Yahya Kaya (22370031036)  
 > **Danışman:** Dr. Öğr. Üyesi Hasan Serdar  
-> **Yıl:** 2025
+> **Yıl:** 2026
 
 ---
 
