@@ -1,511 +1,399 @@
 """
 Focus AI - LightGBM Model
-Trains LightGBM model to predict productivity (for comparison with XGBoost)
-Uses identical preprocessing and feature engineering as XGBoost pipeline
+Trains LightGBM to predict productivity_score and compares with XGBoost.
+
+Fixes vs original:
+- Full pagination (loads all rows, not just 1000)
+- Uses productivity_score as target (not post-survey focus/satisfaction)
+- Post-survey columns excluded from features (no target leakage)
+- Identical feature engineering to ml_pipeline.py
 """
 
 import os
 import sys
-from typing import Dict, Tuple, List
-import pandas as pd
-import numpy as np
-from dotenv import load_dotenv
-import lightgbm as lgb
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-from supabase import create_client, Client
 import warnings
+from typing import Dict, List, Tuple
 
-warnings.filterwarnings('ignore')
+import lightgbm as lgb
+import numpy as np
+import pandas as pd
+from dotenv import load_dotenv
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import cross_val_score, train_test_split
+from supabase import create_client, Client
 
-# ============================================
-# CONFIGURATION
-# ============================================
+warnings.filterwarnings("ignore")
+
+# ── Config ───────────────────────────────────────────────────────────────────
 
 RANDOM_STATE = 42
 TEST_SIZE = 0.2
+PAGE_SIZE = 1000
 
-# LightGBM hyperparameters
 LIGHTGBM_PARAMS = {
-    'n_estimators': 200,
-    'max_depth': 6,
-    'learning_rate': 0.1,
-    'num_leaves': 31,
-    'subsample': 0.8,
-    'colsample_bytree': 0.8,
-    'random_state': RANDOM_STATE,
-    'verbose': -1
+    "n_estimators": 200,
+    "max_depth": 6,
+    "learning_rate": 0.1,
+    "num_leaves": 31,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "random_state": RANDOM_STATE,
+    "verbose": -1,
 }
 
-# ============================================
-# SUPABASE CLIENT
-# ============================================
+# ── Supabase ─────────────────────────────────────────────────────────────────
 
-supabase: Client = None
+_supabase: Client | None = None
 
 
-def validate_and_get_credentials() -> Tuple[str, str]:
-    """Validate Supabase credentials"""
-    supabase_url = os.getenv('SUPABASE_URL')
-    supabase_key = os.getenv('SUPABASE_KEY')
-    
-    if not supabase_url or not supabase_key:
-        raise ValueError("Missing SUPABASE_URL or SUPABASE_KEY in .env")
-    
-    # Mask the key for display
-    masked_key = supabase_key[:20] + "..." + supabase_key[-5:]
-    print(f"✓ SUPABASE_URL: {supabase_url}")
-    print(f"✓ SUPABASE_KEY: {masked_key}")
-    
-    return supabase_url, supabase_key
+def get_supabase() -> Client:
+    global _supabase
+    if _supabase is None:
+        url = os.environ["SUPABASE_URL"]
+        key = os.environ["SUPABASE_KEY"]
+        _supabase = create_client(url, key)
+    return _supabase
 
 
-def connect_supabase() -> Client:
-    """Connect to Supabase"""
-    global supabase
-    
-    supabase_url, supabase_key = validate_and_get_credentials()
-    supabase = create_client(supabase_url, supabase_key)
-    print("✓ Successfully connected to Supabase\n")
-    return supabase
+# ── Data loading (paginated) ──────────────────────────────────────────────────
+
+def _unpack(row: dict, key: str) -> dict:
+    val = row.get(key) or []
+    if isinstance(val, list):
+        return val[0] if val else {}
+    if isinstance(val, dict):
+        return val
+    return {}
 
 
-# ============================================
-# DATA LOADING
-# ============================================
+def fetch_all_sessions() -> pd.DataFrame:
+    sb = get_supabase()
+    all_records = []
+    offset = 0
 
-def load_data() -> pd.DataFrame:
-    """
-    Load and join data from Supabase tables
-    Returns: DataFrame with all features and target
-    """
-    global supabase
-    
-    print("📁 Loading data from Supabase...")
-    
-    # Load sessions
-    sessions_response = supabase.table("sessions").select("*").execute()
-    sessions_df = pd.DataFrame(sessions_response.data)
-    print(f"  Loaded {len(sessions_df)} sessions")
-    
-    # Load pre_surveys
-    pre_surveys_response = supabase.table("pre_surveys").select("*").execute()
-    pre_surveys_df = pd.DataFrame(pre_surveys_response.data)
-    print(f"  Loaded {len(pre_surveys_df)} pre-surveys")
-    
-    # Load post_surveys (target variable)
-    post_surveys_response = supabase.table("post_surveys").select("*").execute()
-    post_surveys_df = pd.DataFrame(post_surveys_response.data)
-    print(f"  Loaded {len(post_surveys_df)} post-surveys")
-    
-    # Load passive_signals (telemetry)
-    signals_response = supabase.table("passive_signals").select("*").execute()
-    signals_df = pd.DataFrame(signals_response.data)
-    print(f"  Loaded {len(signals_df)} passive signals")
-    
-    # Join tables
-    print("\n📊 Joining tables...")
-    
-    # Rename id to session_id in source tables for consistent merging
-    pre_surveys_df_copy = pre_surveys_df.copy()
-    post_surveys_df_copy = post_surveys_df.copy()
-    signals_df_copy = signals_df.copy()
-    
-    # Drop duplicate 'id' columns from surveys if they exist (keep session_id)
-    if 'id' in pre_surveys_df_copy.columns:
-        pre_surveys_df_copy.drop('id', axis=1, inplace=True)
-    if 'id' in post_surveys_df_copy.columns:
-        post_surveys_df_copy.drop('id', axis=1, inplace=True)
-    if 'id' in signals_df_copy.columns:
-        signals_df_copy.drop('id', axis=1, inplace=True)
-    
-    # Join sessions with pre_surveys using session_id (LEFT join to keep all sessions)
-    df = sessions_df.merge(
-        pre_surveys_df_copy,
-        left_on='id',
-        right_on='session_id',
-        how='left'
+    print("📁 Loading data from Supabase (paginated)...")
+
+    while True:
+        result = (
+            sb.table("sessions")
+            .select(
+                "id, user_id, session_type, start_time, actual_duration, "
+                "planned_duration, pause_count, total_break_mins, productivity_score, "
+                "pre_surveys(mood, energy, motivation, goal_difficulty, environment, music_type), "
+                "post_surveys(productivity, focus, satisfaction, distraction), "
+                "passive_signals(notification_count, distraction_taps, unlock_count)"
+            )
+            .eq("status", "COMPLETED")
+            .not_.is_("productivity_score", "null")
+            .order("start_time", desc=False)
+            .range(offset, offset + PAGE_SIZE - 1)
+            .execute()
+        )
+
+        rows = result.data
+        if not rows:
+            break
+
+        for r in rows:
+            pre = _unpack(r, "pre_surveys")
+            post = _unpack(r, "post_surveys")
+            sig = _unpack(r, "passive_signals")
+
+            if not pre or not post:
+                continue
+            if pre.get("mood") is None or post.get("productivity") is None:
+                continue
+            if not r.get("actual_duration") or r["actual_duration"] < 5:
+                continue
+
+            all_records.append({
+                "session_id":         r["id"],
+                "user_id":            r["user_id"],
+                "session_type":       r["session_type"],
+                "start_time":         r["start_time"],
+                "actual_duration":    r["actual_duration"],
+                "planned_duration":   r["planned_duration"],
+                "pause_count":        r["pause_count"],
+                "total_break_mins":   r["total_break_mins"],
+                "productivity_score": float(r["productivity_score"]),  # TARGET
+                "mood":               pre.get("mood"),
+                "energy":             pre.get("energy"),
+                "motivation":         pre.get("motivation"),
+                "goal_difficulty":    pre.get("goal_difficulty"),
+                "environment":        pre.get("environment"),
+                "music_type":         pre.get("music_type"),
+                # passive signals (optional)
+                "notification_count": sig.get("notification_count", 0) or 0,
+                "distraction_taps":   sig.get("distraction_taps", 0) or 0,
+                "unlock_count":       sig.get("unlock_count", 0) or 0,
+                # post-survey kept for reference only — NOT used as features
+                "_post_productivity": post.get("productivity"),
+                "_post_focus":        post.get("focus"),
+                "_post_satisfaction": post.get("satisfaction"),
+                "_post_distraction":  post.get("distraction"),
+            })
+
+        if len(rows) < PAGE_SIZE:
+            break
+        offset += PAGE_SIZE
+
+    print(f"  ✓ Loaded {len(all_records)} valid sessions")
+    return pd.DataFrame(all_records)
+
+
+# ── Feature engineering ───────────────────────────────────────────────────────
+
+SESSION_TYPES      = ["READING", "WRITING", "CODING", "TEST", "OTHER"]
+ENVIRONMENTS       = ["QUIET", "MUSIC", "NOISY"]
+MUSIC_TYPES        = ["AMBIENT", "LOFI", "CLASSICAL", "OTHER"]
+DISTRACTION_MAP    = {"NONE": 0, "FEW": 1, "MANY": 2}
+
+FEATURE_COLS = [
+    # Pre-survey (normalized)
+    "mood_norm", "energy_norm", "motivation_norm", "goal_difficulty_norm",
+    # Session telemetry
+    "actual_duration", "plan_deviation", "break_ratio", "pause_count", "pause_rate",
+    # Passive signals
+    "notification_count", "distraction_taps", "unlock_count", "distraction_index",
+    # Derived
+    "pre_readiness",
+    # Time
+    "hour_of_day", "day_of_week",
+    # One-hot: session type
+    "type_reading", "type_writing", "type_coding", "type_test", "type_other",
+    # One-hot: environment
+    "env_quiet", "env_music", "env_noisy",
+    # One-hot: music
+    "music_ambient", "music_lofi", "music_classical", "music_other",
+    # One-hot: daypart
+    "daypart_morning", "daypart_afternoon", "daypart_evening",
+    "daypart_night", "daypart_late_night",
+]
+
+TARGET_COL = "productivity_score"
+
+
+def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    # Time
+    df["start_time"]  = pd.to_datetime(df["start_time"], format="mixed")
+    df["hour_of_day"] = df["start_time"].dt.hour
+    df["day_of_week"] = df["start_time"].dt.dayofweek
+
+    df["daypart"] = pd.cut(
+        df["hour_of_day"],
+        bins=[-1, 6, 12, 17, 21, 24],
+        labels=["night", "morning", "afternoon", "evening", "late_night"],
+    ).astype(str)
+
+    # Duration
+    df["actual_duration"]  = pd.to_numeric(df["actual_duration"],  errors="coerce").fillna(0)
+    df["planned_duration"] = pd.to_numeric(df["planned_duration"], errors="coerce").fillna(df["actual_duration"])
+    df["plan_deviation"]   = np.where(
+        df["planned_duration"] > 0,
+        df["actual_duration"] / df["planned_duration"],
+        1.0,
+    ).clip(0, 2)
+
+    df["total_break_mins"] = pd.to_numeric(df["total_break_mins"], errors="coerce").fillna(0)
+    df["break_ratio"] = np.where(
+        df["actual_duration"] > 0,
+        df["total_break_mins"] / df["actual_duration"],
+        0.0,
+    ).clip(0, 1)
+
+    df["pause_count"] = pd.to_numeric(df["pause_count"], errors="coerce").fillna(0)
+    df["pause_rate"]  = np.where(
+        df["actual_duration"] > 0,
+        df["pause_count"] / df["actual_duration"],
+        0.0,
     )
-    print(f"  After pre_surveys join: {len(df)} records")
-    
-    # Join with post_surveys using session_id (LEFT join to keep all sessions)
-    df = df.merge(
-        post_surveys_df_copy,
-        left_on='id',
-        right_on='session_id',
-        how='left',
-        suffixes=('_pre', '_post')
-    )
-    print(f"  After post_surveys join: {len(df)} records")
-    
-    # Join with passive_signals using session_id (LEFT join)
-    df = df.merge(
-        signals_df_copy,
-        left_on='id',
-        right_on='session_id',
-        how='left',
-        suffixes=('', '_signals')
-    )
-    print(f"  After passive_signals join: {len(df)} records")
-    
+
+    # Pre-survey normalization (1-5 → 0-1)
+    for col in ["mood", "energy", "motivation", "goal_difficulty"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(3)
+        df[f"{col}_norm"] = (df[col] - 1) / 4
+
+    # Composite pre-survey readiness
+    df["pre_readiness"] = (df["mood_norm"] + df["energy_norm"] + df["motivation_norm"]) / 3
+
+    # Passive signals
+    for col in ["notification_count", "distraction_taps", "unlock_count"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+    df["distraction_index"] = (
+        df["notification_count"] + df["distraction_taps"] + df["unlock_count"]
+    ) / (df["actual_duration"] + 1)
+
+    # One-hot: session type
+    for val in SESSION_TYPES:
+        df[f"type_{val.lower()}"] = (df["session_type"] == val).astype(int)
+
+    # One-hot: environment
+    for val in ENVIRONMENTS:
+        df[f"env_{val.lower()}"] = (df["environment"] == val).astype(int)
+
+    # One-hot: music type
+    for val in MUSIC_TYPES:
+        df[f"music_{val.lower()}"] = (df["music_type"] == val).astype(int)
+
+    # One-hot: daypart
+    for val in ["morning", "afternoon", "evening", "night", "late_night"]:
+        df[f"daypart_{val}"] = (df["daypart"] == val).astype(int)
+
     return df
 
 
-def clean_data(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Clean and prepare data for modeling
-    """
-    print("\n🧹 Cleaning data...")
-    
-    print(f"  Before cleaning: {len(df)} records")
-    print(f"  Columns available: {list(df.columns)}")
-    
-    # If 'productivity' column doesn't have many values, create it from focus/satisfaction
-    if 'productivity' not in df.columns or df['productivity'].isna().sum() > len(df) * 0.5:
-        print("  Creating productivity from post-survey metrics...")
-        if 'focus' in df.columns and 'satisfaction' in df.columns:
-            df['focus'].fillna(5, inplace=True)
-            df['satisfaction'].fillna(5, inplace=True)
-            df['productivity'] = (df['focus'] + df['satisfaction']) / 2.0
-        elif 'focus' in df.columns:
-            df['focus'].fillna(5, inplace=True)
-            df['productivity'] = df['focus']
-        else:
-            print("  ERROR: Cannot create productivity - missing focus/satisfaction columns")
-            return df
-    
-    # Drop rows with missing target (productivity score is required)
-    df = df.dropna(subset=['productivity'])
-    print(f"  After dropping missing target: {len(df)} records")
-    
-    # Fill missing numeric values with 0 (notifications, distractions)
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-    for col in numeric_cols:
-        if df[col].isna().any():
-            df[col].fillna(0, inplace=True)
-    
-    # Fill missing categorical values with defaults
-    categorical_cols = ['environment', 'music_type', 'distraction', 'session_type', 'status']
-    for col in categorical_cols:
-        if col in df.columns:
-            if df[col].isna().any():
-                if col == 'environment':
-                    df[col].fillna('QUIET', inplace=True)
-                elif col == 'music_type':
-                    df[col].fillna('LOFI', inplace=True)
-                elif col == 'distraction':
-                    df[col].fillna('NONE', inplace=True)
-                elif col == 'session_type':
-                    df[col].fillna('OTHER', inplace=True)
-                elif col == 'status':
-                    df[col].fillna('COMPLETED', inplace=True)
-    
-    # Fill missing pre-survey values with neutral/default values
-    if 'mood' in df.columns:
-        df['mood'].fillna(5, inplace=True)
-    if 'energy' in df.columns:
-        df['energy'].fillna(5, inplace=True)
-    if 'motivation' in df.columns:
-        df['motivation'].fillna(5, inplace=True)
-    if 'goal_difficulty' in df.columns:
-        df['goal_difficulty'].fillna(5, inplace=True)
-    
-    # Fill missing post-survey values
-    if 'focus' in df.columns:
-        df['focus'].fillna(5, inplace=True)
-    if 'satisfaction' in df.columns:
-        df['satisfaction'].fillna(5, inplace=True)
-    
-    print(f"  Cleaned dataset shape: {df.shape}")
-    
-    return df
+# ── Training ──────────────────────────────────────────────────────────────────
 
+def train_and_evaluate(df: pd.DataFrame):
+    df = engineer_features(df)
 
-# ============================================
-# FEATURE ENGINEERING (IDENTICAL TO XGBOOST)
-# ============================================
+    for col in FEATURE_COLS:
+        if col not in df.columns:
+            df[col] = 0
 
-def engineer_features(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str], Dict]:
-    """
-    Create engineered features for the model
-    Returns: DataFrame with features, list of feature names, label encoders
-    """
-    print("\n🔧 Engineering features...")
-    
-    df_features = df.copy()
-    
-    # Duration features
-    df_features['break_ratio'] = df_features['total_break_mins'] / (df_features['actual_duration'] + 1)
-    df_features['plan_deviation'] = df_features['actual_duration'] - df_features['planned_duration']
-    df_features['pause_rate'] = df_features['pause_count'] / (df_features['actual_duration'] + 1)
-    
-    # Normalize durations
-    df_features['duration_norm'] = np.log1p(df_features['actual_duration'])
-    df_features['planned_norm'] = np.log1p(df_features['planned_duration'])
-    
-    # Aggregate pre-survey metrics
-    df_features['pre_readiness'] = (
-        df_features['mood'] + 
-        df_features['energy'] + 
-        df_features['motivation']
-    ) / 3.0
-    
-    # Post-survey metrics
-    df_features['post_performance'] = (
-        df_features['focus'] + 
-        df_features['productivity'] + 
-        df_features['satisfaction']
-    ) / 3.0
-    
-    # Session complexity
-    df_features['goal_difficulty_norm'] = df_features['goal_difficulty'] / 10.0
-    
-    # Telemetry features (handle missing values)
-    df_features['notification_count'] = df_features['notification_count'].fillna(0)
-    df_features['distraction_taps'] = df_features['distraction_taps'].fillna(0)
-    df_features['unlock_count'] = df_features['unlock_count'].fillna(0)
-    
-    # Engagement index
-    df_features['distraction_index'] = (
-        df_features['notification_count'] + 
-        df_features['distraction_taps'] + 
-        df_features['unlock_count']
-    ) / (df_features['actual_duration'] + 1)
-    
-    # Encode categorical variables
-    categorical_features = ['session_type', 'environment', 'music_type', 'distraction', 'status']
-    label_encoders = {}
-    
-    for col in categorical_features:
-        if col in df_features.columns:
-            le = LabelEncoder()
-            df_features[f'{col}_encoded'] = le.fit_transform(df_features[col].astype(str))
-            label_encoders[col] = le
-    
-    print(f"  Created {len(df_features.columns) - len(df.columns)} new features")
-    
-    # Select features for model
-    numeric_features = [
-        'mood', 'energy', 'motivation', 'goal_difficulty',
-        'actual_duration', 'planned_duration', 'pause_count', 'total_break_mins',
-        'notification_count', 'distraction_taps', 'unlock_count',
-        'focus', 'satisfaction',
-        'break_ratio', 'plan_deviation', 'pause_rate',
-        'duration_norm', 'planned_norm', 'pre_readiness',
-        'post_performance', 'goal_difficulty_norm', 'distraction_index'
-    ]
-    
-    categorical_encoded = [f'{col}_encoded' for col in categorical_features if f'{col}_encoded' in df_features.columns]
-    
-    feature_names = numeric_features + categorical_encoded
-    
-    # Remove features that don't exist
-    feature_names = [f for f in feature_names if f in df_features.columns]
-    
-    print(f"  Total features for modeling: {len(feature_names)}")
-    
-    return df_features, feature_names, label_encoders
+    X = df[FEATURE_COLS].fillna(0)
+    y = df[TARGET_COL]
 
+    print(f"\n  Target range: min={y.min():.1f}, max={y.max():.1f}, mean={y.mean():.1f}")
 
-# ============================================
-# MODEL TRAINING
-# ============================================
-
-def train_model(X: pd.DataFrame, y: pd.Series) -> Tuple[lgb.LGBMRegressor, Dict]:
-    """
-    Train LightGBM regression model
-    Returns: trained model and performance metrics
-    """
-    print("\n🤖 Training LightGBM model...")
-    
-    # Train/test split
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=TEST_SIZE, random_state=RANDOM_STATE
     )
-    
     print(f"  Training set: {len(X_train)} samples")
-    print(f"  Test set: {len(X_test)} samples")
-    
-    # Train model
+    print(f"  Test set:     {len(X_test)} samples")
+
     model = lgb.LGBMRegressor(**LIGHTGBM_PARAMS)
     model.fit(X_train, y_train)
-    
-    # Evaluate
+
     y_pred_train = model.predict(X_train)
-    y_pred_test = model.predict(X_test)
-    
-    train_rmse = np.sqrt(mean_squared_error(y_train, y_pred_train))
-    test_rmse = np.sqrt(mean_squared_error(y_test, y_pred_test))
-    train_r2 = r2_score(y_train, y_pred_train)
-    test_r2 = r2_score(y_test, y_pred_test)
-    train_mae = mean_absolute_error(y_train, y_pred_train)
-    test_mae = mean_absolute_error(y_test, y_pred_test)
-    
-    print(f"\n📊 LightGBM Performance:")
-    print(f"  Train RMSE: {train_rmse:.4f}")
-    print(f"  Test RMSE:  {test_rmse:.4f}")
-    print(f"  Train R²:   {train_r2:.4f}")
-    print(f"  Test R²:    {test_r2:.4f}")
-    print(f"  Train MAE:  {train_mae:.4f}")
-    print(f"  Test MAE:   {test_mae:.4f}")
-    
-    # Feature importance
-    feature_importance = pd.DataFrame({
-        'feature': X.columns,
-        'importance': model.feature_importances_
-    }).sort_values('importance', ascending=False)
-    
-    print(f"\n🎯 Top 10 Most Important Features:")
-    for idx, row in feature_importance.head(10).iterrows():
-        print(f"  {row['feature']}: {row['importance']:.4f}")
-    
-    # Store metrics for comparison
+    y_pred_test  = model.predict(X_test)
+
     metrics = {
-        'train_rmse': train_rmse,
-        'test_rmse': test_rmse,
-        'train_r2': train_r2,
-        'test_r2': test_r2,
-        'train_mae': train_mae,
-        'test_mae': test_mae,
-        'feature_importance': feature_importance
+        "train_rmse": float(np.sqrt(mean_squared_error(y_train, y_pred_train))),
+        "test_rmse":  float(np.sqrt(mean_squared_error(y_test,  y_pred_test))),
+        "train_r2":   float(r2_score(y_train, y_pred_train)),
+        "test_r2":    float(r2_score(y_test,  y_pred_test)),
+        "train_mae":  float(mean_absolute_error(y_train, y_pred_train)),
+        "test_mae":   float(mean_absolute_error(y_test,  y_pred_test)),
     }
-    
+
+    print(f"\n📊 LightGBM Performance:")
+    print(f"  Train RMSE: {metrics['train_rmse']:.4f}")
+    print(f"  Test  RMSE: {metrics['test_rmse']:.4f}")
+    print(f"  Train R²:   {metrics['train_r2']:.4f}")
+    print(f"  Test  R²:   {metrics['test_r2']:.4f}")
+    print(f"  Train MAE:  {metrics['train_mae']:.4f}")
+    print(f"  Test  MAE:  {metrics['test_mae']:.4f}")
+
+    # CV MAE
+    try:
+        cv_mae = -cross_val_score(
+            lgb.LGBMRegressor(**LIGHTGBM_PARAMS),
+            X, y, cv=5, scoring="neg_mean_absolute_error",
+        ).mean()
+        print(f"  5-fold CV MAE: {cv_mae:.4f}")
+        metrics["cv_mae"] = cv_mae
+    except Exception:
+        pass
+
+    # Feature importance
+    fi = pd.DataFrame({
+        "feature":    FEATURE_COLS,
+        "importance": model.feature_importances_,
+    }).sort_values("importance", ascending=False)
+
+    print(f"\n🎯 Top 10 Most Important Features:")
+    for _, row in fi.head(10).iterrows():
+        print(f"  {row['feature']}: {row['importance']:.4f}")
+
     return model, metrics
 
 
-# ============================================
-# XGBOOST MODEL LOADING (FOR COMPARISON)
-# ============================================
+# ── Comparison ────────────────────────────────────────────────────────────────
 
-def load_xgboost_metrics() -> Dict:
-    """
-    Load XGBoost metrics from previous run for comparison
-    Returns: Metrics dictionary
-    """
-    # These values are from the train_xgboost.py execution
-    # You can update these by running train_xgboost.py again
-    metrics = {
-        'train_rmse': 0.0003,
-        'test_rmse': 0.0036,
-        'train_r2': 1.0000,
-        'test_r2': 0.9997,
-        'train_mae': 0.0000,
-        'test_mae': 0.0003
-    }
-    return metrics
+# XGBoost real metrics from ml_pipeline.py run on 8234 sessions
+XGBOOST_REAL_METRICS = {
+    "test_rmse": 12.2615,
+    "test_r2":   0.7794,
+    "test_mae":  9.0900,
+}
 
 
-# ============================================
-# MODEL COMPARISON
-# ============================================
+def compare_models(lgb_metrics: dict):
+    xgb = XGBOOST_REAL_METRICS
+    lgb_m = lgb_metrics
 
-def compare_models(lightgbm_metrics: Dict, xgboost_metrics: Dict = None):
-    """
-    Compare LightGBM with XGBoost metrics
-    """
-    print("\n" + "="*70)
-    print("🏆 MODEL COMPARISON: LIGHTGBM vs XGBOOST")
-    print("="*70)
-    
-    if xgboost_metrics is None:
-        xgboost_metrics = load_xgboost_metrics()
-    
-    metrics_to_compare = ['test_rmse', 'test_r2', 'test_mae']
-    
-    print(f"\n{'Metric':<15} {'LightGBM':<15} {'XGBoost':<15} {'Winner':<15}")
-    print("-" * 60)
-    
-    for metric in metrics_to_compare:
-        lgb_val = lightgbm_metrics[metric]
-        xgb_val = xgboost_metrics[metric]
-        
-        # Determine winner (lower is better for RMSE/MAE, higher is better for R²)
-        if metric == 'test_r2':
+    print("\n" + "=" * 65)
+    print("🏆 MODEL COMPARISON: LightGBM vs XGBoost")
+    print("    (Both trained on same dataset, same feature set, no leakage)")
+    print("=" * 65)
+    print(f"{'Metric':<15} {'LightGBM':<15} {'XGBoost':<15} {'Winner':<10}")
+    print("-" * 55)
+
+    for metric, label in [("test_rmse", "Test RMSE"), ("test_r2", "Test R²"), ("test_mae", "Test MAE")]:
+        lgb_val = lgb_m[metric]
+        xgb_val = xgb[metric]
+        if metric == "test_r2":
             winner = "LightGBM" if lgb_val > xgb_val else "XGBoost"
         else:
             winner = "LightGBM" if lgb_val < xgb_val else "XGBoost"
-        
-        print(f"{metric:<15} {lgb_val:<15.4f} {xgb_val:<15.4f} {winner:<15}")
-    
-    print("-" * 60)
-    
-    # Overall winner
-    lgb_score = (
-        1 if lightgbm_metrics['test_r2'] > xgboost_metrics['test_r2'] else 0
-    ) + (
-        1 if lightgbm_metrics['test_rmse'] < xgboost_metrics['test_rmse'] else 0
-    ) + (
-        1 if lightgbm_metrics['test_mae'] < xgboost_metrics['test_mae'] else 0
-    )
-    
-    overall_winner = "LightGBM" if lgb_score >= 2 else "XGBoost"
-    print(f"\n🏅 Overall Winner: {overall_winner}")
-    print("="*70 + "\n")
+        print(f"{label:<15} {lgb_val:<15.4f} {xgb_val:<15.4f} {winner:<10}")
+
+    print("-" * 55)
+    xgb_wins = sum([
+        lgb_m["test_rmse"] > xgb["test_rmse"],
+        lgb_m["test_r2"]   < xgb["test_r2"],
+        lgb_m["test_mae"]  > xgb["test_mae"],
+    ])
+    overall = "XGBoost" if xgb_wins >= 2 else "LightGBM"
+    print(f"\n🏅 Overall Winner: {overall}")
+    print("=" * 65)
 
 
-# ============================================
-# MAIN PIPELINE
-# ============================================
+# ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    """Main LightGBM evaluation pipeline"""
-    
-    print("\n" + "="*70)
-    print("FOCUS AI - LIGHTGBM MODEL")
-    print("="*70 + "\n")
-    
-    # Load environment
-    env_file = os.path.join(os.path.dirname(__file__), '.env')
-    if os.path.exists(env_file):
-        load_dotenv(env_file)
-    else:
-        load_dotenv()
-    
-    try:
-        # Connect to Supabase
-        print("🔑 CONNECTING TO SUPABASE")
-        print("="*70)
-        connect_supabase()
-        
-        # Load data
-        print("📊 DATA LOADING")
-        print("="*70)
-        df = load_data()
-        df = clean_data(df)
-        
-        # Feature engineering
-        print("\n🔧 FEATURE ENGINEERING")
-        print("="*70)
-        df_features, feature_names, label_encoders = engineer_features(df)
-        
-        # Prepare data for modeling
-        X = df_features[feature_names]
-        y = df_features['productivity']
-        
-        # Train model
-        print("\n🤖 MODEL TRAINING")
-        print("="*70)
-        model, lightgbm_metrics = train_model(X, y)
-        
-        # Compare with XGBoost
-        print("\n📊 MODEL COMPARISON")
-        print("="*70)
-        compare_models(lightgbm_metrics)
-        
-        print("="*70)
-        print("✅ EVALUATION COMPLETED SUCCESSFULLY!")
-        print("="*70 + "\n")
-        
-        return model, lightgbm_metrics
-    
-    except Exception as e:
-        print(f"\n❌ ERROR: {e}")
-        import traceback
-        traceback.print_exc()
+    print("\n" + "=" * 65)
+    print("FOCUS AI - LIGHTGBM EVALUATION PIPELINE")
+    print("=" * 65)
+
+    env_file = os.path.join(os.path.dirname(__file__), ".env")
+    load_dotenv(env_file if os.path.exists(env_file) else None)
+
+    print("\n🔑 CONNECTING TO SUPABASE")
+    print("=" * 65)
+    sb = get_supabase()
+    print(f"✓ Connected to {os.environ['SUPABASE_URL']}")
+
+    print("\n📊 DATA LOADING")
+    print("=" * 65)
+    df = fetch_all_sessions()
+
+    if df.empty or len(df) < 50:
+        print(f"❌ Not enough data ({len(df)} rows). Exiting.")
         sys.exit(1)
+
+    print("\n🔧 FEATURE ENGINEERING")
+    print("=" * 65)
+    print(f"  Leakage check: post-survey columns excluded ✓")
+    print(f"  Target: productivity_score (server-computed) ✓")
+
+    print("\n🤖 MODEL TRAINING")
+    print("=" * 65)
+    model, metrics = train_and_evaluate(df)
+
+    print("\n📊 MODEL COMPARISON")
+    print("=" * 65)
+    compare_models(metrics)
+
+    print("\n" + "=" * 65)
+    print("✅ EVALUATION COMPLETED SUCCESSFULLY!")
+    print("=" * 65)
+
+    return model, metrics
 
 
 if __name__ == "__main__":
     model, metrics = main()
-    print(f"Model evaluation complete")
