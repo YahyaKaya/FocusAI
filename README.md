@@ -213,6 +213,38 @@ Her klasörde bir `.env.example` dosyası bulunur. Kurulum öncesinde bu dosyay�
 
 ---
 
+## Android APK — Kurulum
+
+> **Yalnızca Android içindir.** iOS desteklenmemektedir.
+
+Uygulamayı iki yoldan yükleyebilirsiniz:
+
+### Yöntem 1 — Repo'daki APK (Önerilen)
+
+1. Bu repodan **`FocusAI.apk`** dosyasını Android cihazınıza indirin.
+
+2. **Bilinmeyen kaynaklara izin verin.**  
+   Android, Play Store dışından uygulama yüklemeyi varsayılan olarak engeller:
+   - **Android 8 ve üzeri:** Ayarlar → Uygulamalar → Özel uygulama erişimi → Bilinmeyen uygulamaları yükle → kullandığınız tarayıcı veya Dosyalar uygulaması → İzin ver
+   - **Android 7 ve altı:** Ayarlar → Güvenlik → Bilinmeyen kaynaklar → Aç
+
+3. Dosyalar uygulamasından `Downloads` klasörüne gidin, **`FocusAI.apk`** dosyasına dokunun.
+
+4. **"Yükle"** butonuna basın ve kurulumun tamamlanmasını bekleyin.
+
+5. Uygulamayı açın ve hesap oluşturarak kullanmaya başlayın.
+
+### Yöntem 2 — Expo Build Linki
+
+Alternatif olarak aşağıdaki Expo linkinden de APK indirilebilir:  
+[https://expo.dev/accounts/redlight77/projects/focus-ai-yahya/builds/8232dd00-3626-496f-a8cc-170da47f9852](https://expo.dev/accounts/redlight77/projects/focus-ai-yahya/builds/8232dd00-3626-496f-a8cc-170da47f9852)
+
+Sayfayı Android cihazınızda açıp **Download** butonuna basın, ardından yukarıdaki 2–5. adımları uygulayın.
+
+> **Not:** Kurulum sırasında "Bu uygulama zararlı olabilir" uyarısı çıkabilir. Bu, Play Store onayı olmayan tüm harici APK'lar için Android'in standart uyarısıdır. "Yine de yükle" seçeneğiyle devam edebilirsiniz.
+
+---
+
 ## Kaynak Kodu
 
 [https://github.com/YahyaKaya/FocusAI](https://github.com/YahyaKaya/FocusAI)
